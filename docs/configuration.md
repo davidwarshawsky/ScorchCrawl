@@ -156,6 +156,64 @@ These are configured in `server/src/rate-limiter.ts`:
 
 ---
 
+## Response Processing
+
+ScorchCrawl automatically processes all tool responses through three layers: error mapping, content truncation, and AI summarization. These are implemented in `server/src/response-utils.ts`.
+
+### Error Mapping
+
+All tool errors are caught and classified into structured, LLM-friendly error codes with actionable suggestions. No configuration needed — this is always active.
+
+Error codes: `ACCESS_DENIED`, `NOT_FOUND`, `RATE_LIMITED`, `SERVER_ERROR`, `TIMEOUT`, `ENGINE_UNAVAILABLE`, `CONNECTION_FAILED`, `TLS_ERROR`, `EMPTY_CONTENT`, `SPA_DETECTED`, `UNKNOWN_ERROR`.
+
+### Content Truncation
+
+#### `SCORCHCRAWL_MAX_CONTENT_CHARS`
+
+| | |
+|---|---|
+| **Default** | `25000` |
+
+Maximum characters allowed in a tool response. When exceeded, content is truncated at the nearest paragraph, heading, or sentence boundary, and a truncation notice is appended. Metadata, links, and structured data are never truncated. Set to `0` to disable truncation.
+
+### AI Summarization
+
+When enabled, long content is summarized by the Copilot SDK before truncation is applied, preserving factual data while reducing token usage.
+
+#### `SCORCHCRAWL_SUMMARIZE_AFTER_WORDS`
+
+| | |
+|---|---|
+| **Default** | `5000` |
+
+Word count threshold above which AI summarization is attempted. Content with fewer words is left unchanged. Set to `0` to disable summarization entirely.
+
+#### `SCORCHCRAWL_SUMMARIZE_MODEL`
+
+| | |
+|---|---|
+| **Default** | `gpt-4o` |
+
+LLM model used for summarization via the Copilot SDK.
+
+#### `SCORCHCRAWL_SUMMARIZE_CACHE_SIZE`
+
+| | |
+|---|---|
+| **Default** | `100` |
+
+Maximum number of summarization results cached in memory (LRU cache, 30-minute TTL). Prevents re-summarizing the same page content.
+
+#### `SCORCHCRAWL_SUMMARIZE_MAX_PER_MINUTE`
+
+| | |
+|---|---|
+| **Default** | `10` |
+
+Maximum summarization API calls per minute (sliding window). When reached, content falls back to truncation instead of summarization.
+
+---
+
 ## Scraping Engine Configuration
 
 ### `NUM_WORKERS_PER_QUEUE`
@@ -342,6 +400,11 @@ Documentation flag. When `true`, indicates the server is behind an nginx reverse
 | `COPILOT_AGENT_DEFAULT_MODEL` | `gpt-4.1` | Agent |
 | `RATE_LIMIT_MAX_GLOBAL_CONCURRENCY` | `10` | Rate Limit |
 | `RATE_LIMIT_MAX_PER_USER_CONCURRENCY` | `3` | Rate Limit |
+| `SCORCHCRAWL_MAX_CONTENT_CHARS` | `25000` | Response |
+| `SCORCHCRAWL_SUMMARIZE_AFTER_WORDS` | `5000` | Response |
+| `SCORCHCRAWL_SUMMARIZE_MODEL` | `gpt-4o` | Response |
+| `SCORCHCRAWL_SUMMARIZE_CACHE_SIZE` | `100` | Response |
+| `SCORCHCRAWL_SUMMARIZE_MAX_PER_MINUTE` | `10` | Response |
 | `NUM_WORKERS_PER_QUEUE` | `16` | Scraping |
 | `MAX_CONCURRENT_JOBS` | `10` | Scraping |
 | `BROWSER_POOL_SIZE` | `10` | Scraping |

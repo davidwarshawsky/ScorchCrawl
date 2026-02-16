@@ -335,8 +335,11 @@ setInterval(() => {
  * Get or create a CopilotClient for the given token.
  * If `userToken` is provided it takes priority; otherwise
  * the server-wide GITHUB_TOKEN env var is used.
+ *
+ * Exported so the summarization layer in response-utils.ts can
+ * reuse the same cached Copilot client instances.
  */
-async function getCopilotClient(userToken?: string): Promise<CopilotClient> {
+export async function getCopilotClient(userToken?: string): Promise<CopilotClient> {
   const cacheKey = userToken || '';
   const existing = clientCache.get(cacheKey);
   if (existing) {

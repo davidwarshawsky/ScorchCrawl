@@ -13,8 +13,16 @@ import {
   parseAllowedModels,
   getDefaultModel,
   getRateLimitStats,
+  getCopilotClient,
   type AgentConfig,
 } from './copilot-agent.js';
+import {
+  mapError,
+  safeExecute,
+  processResponse,
+  processResponseSync,
+  type MappedError,
+} from './response-utils.js';
 
 dotenv.config({ debug: false, quiet: true });
 
@@ -197,7 +205,7 @@ function getClient(session?: SessionData): ScorchClient {
 }
 
 function asText(data: unknown): string {
-  return JSON.stringify(data, null, 2);
+  return processResponseSync(data);
 }
 
 // scrape tool (v2 semantics, minimal args)
@@ -401,50 +409,79 @@ ${
     >;
     const cleaned = removeEmptyTopLevel(options as Record<string, unknown>);
 
-    // --- Local proxy mode: fetch through user's IP ---
-    if (isLocalProxyEnabled()) {
-      log.info('Scraping URL via LOCAL PROXY (user IP)', { url: String(url) });
-      const localResult = await localScrape(String(url), cleaned as any);
+    return safeExecute(async () => {
+      // --- Local proxy mode: fetch through user's IP ---
+      if (isLocalProxyEnabled()) {
+        log.info('Scraping URL via LOCAL PROXY (user IP)', { url: String(url) });
+        const localResult = await localScrape(String(url), cleaned as any);
 
-      // If the requested format needs server-side processing, fall back
-      if (!localResult.success && localResult.error === 'FORMAT_NEEDS_SERVER') {
-        log.info('Format requires server-side processing, falling back to API', { url: String(url) });
-        const client = getClient(session);
-        const res = await client.scrape(String(url), {
-          ...cleaned,
-          origin: ORIGIN,
-        } as any);
-        return asText(res);
+        // If the requested format needs server-side processing, fall back
+        if (!localResult.success && localResult.error === 'FORMAT_NEEDS_SERVER') {
+          log.info('Format requires server-side processing, falling back to API', { url: String(url) });
+          const client = getClient(session);
+          const res = await client.scrape(String(url), {
+            ...cleaned,
+            origin: ORIGIN,
+          } as any);
+          return await processResponse(res, {
+            url: String(url),
+            getCopilotClientFn: getCopilotClient,
+            copilotToken: session?.copilotToken,
+          });
+        }
+
+        // SPA detected: the local fetch returned a JS-only shell.
+        // Retry via the engine's Playwright scraper with waitFor for JS rendering.
+        if (!localResult.success && localResult.error === 'SPA_SKELETON_DETECTED') {
+          const waitMs = (cleaned as any).waitFor || 5000;
+          log.info(
+            `SPA skeleton detected, retrying via engine with waitFor=${waitMs}ms`,
+            { url: String(url) },
+          );
+          const client = getClient(session);
+          const res = await client.scrape(String(url), {
+            ...cleaned,
+            waitFor: waitMs,
+            origin: ORIGIN,
+          } as any);
+          return await processResponse(res, {
+            url: String(url),
+            getCopilotClientFn: getCopilotClient,
+            copilotToken: session?.copilotToken,
+          });
+        }
+
+        // Errors from local scraper
+        if (!localResult.success && localResult.error) {
+          const mapped = mapError(localResult.error);
+          return JSON.stringify({
+            success: false,
+            error: mapped.message,
+            code: mapped.code,
+            suggestions: mapped.suggestions,
+          }, null, 2);
+        }
+
+        return await processResponse(localResult, {
+          url: String(url),
+          getCopilotClientFn: getCopilotClient,
+          copilotToken: session?.copilotToken,
+        });
       }
 
-      // SPA detected: the local fetch returned a JS-only shell.
-      // Retry via the engine's Playwright scraper with waitFor for JS rendering.
-      if (!localResult.success && localResult.error === 'SPA_SKELETON_DETECTED') {
-        const waitMs = (cleaned as any).waitFor || 5000;
-        log.info(
-          `SPA skeleton detected, retrying via engine with waitFor=${waitMs}ms`,
-          { url: String(url) },
-        );
-        const client = getClient(session);
-        const res = await client.scrape(String(url), {
-          ...cleaned,
-          waitFor: waitMs,
-          origin: ORIGIN,
-        } as any);
-        return asText(res);
-      }
-
-      return asText(localResult);
-    }
-
-    // --- Normal mode: use remote scraping API ---
-    const client = getClient(session);
-    log.info('Scraping URL', { url: String(url) });
-    const res = await client.scrape(String(url), {
-      ...cleaned,
-      origin: ORIGIN,
-    } as any);
-    return asText(res);
+      // --- Normal mode: use remote scraping API ---
+      const client = getClient(session);
+      log.info('Scraping URL', { url: String(url) });
+      const res = await client.scrape(String(url), {
+        ...cleaned,
+        origin: ORIGIN,
+      } as any);
+      return await processResponse(res, {
+        url: String(url),
+        getCopilotClientFn: getCopilotClient,
+        copilotToken: session?.copilotToken,
+      });
+    }, { tool: 'scorch_scrape', url: String(url) });
   },
 });
 
@@ -497,14 +534,16 @@ Map a website to discover all indexed URLs on the site.
       string,
       unknown
     >;
-    const client = getClient(session);
-    const cleaned = removeEmptyTopLevel(options as Record<string, unknown>);
-    log.info('Mapping URL', { url: String(url) });
-    const res = await client.map(String(url), {
-      ...cleaned,
-      origin: ORIGIN,
-    } as any);
-    return asText(res);
+    return safeExecute(async () => {
+      const client = getClient(session);
+      const cleaned = removeEmptyTopLevel(options as Record<string, unknown>);
+      log.info('Mapping URL', { url: String(url) });
+      const res = await client.map(String(url), {
+        ...cleaned,
+        origin: ORIGIN,
+      } as any);
+      return asText(res);
+    }, { tool: 'scorch_map', url: String(url) });
   },
 });
 
@@ -587,17 +626,23 @@ The query also supports search operators, that you can use if needed to refine t
     args: unknown,
     { session, log }: { session?: SessionData; log: Logger }
   ): Promise<string> => {
-    const client = getClient(session);
     const { query, ...opts } = args as Record<string, unknown>;
-    const cleaned = removeEmptyTopLevel(opts as Record<string, unknown>);
-    log.info('Searching', { query: String(query) });
-    const res = await client.search(query as string, {
-      ...(cleaned as any),
-      origin: ORIGIN,
-    });
-    return asText(res);
+    return safeExecute(async () => {
+      const client = getClient(session);
+      const cleaned = removeEmptyTopLevel(opts as Record<string, unknown>);
+      log.info('Searching', { query: String(query) });
+      const res = await client.search(query as string, {
+        ...(cleaned as any),
+        origin: ORIGIN,
+      });
+      // Search results are already concise snippets — skip summarization
+      return await processResponse(res, {
+        skipSummarization: true,
+      });
+    }, { tool: 'scorch_search' });
   },
 });
+
 
 server.addTool({
   name: 'scorch_crawl',
@@ -662,14 +707,20 @@ server.addTool({
   }),
   execute: async (args: unknown, { session, log }: { session?: SessionData; log: Logger }) => {
     const { url, ...options } = args as Record<string, unknown>;
-    const client = getClient(session);
-    const cleaned = removeEmptyTopLevel(options as Record<string, unknown>);
-    log.info('Starting crawl', { url: String(url) });
-    const res = await client.crawl(String(url), {
-      ...(cleaned as any),
-      origin: ORIGIN,
-    });
-    return asText(res);
+    return safeExecute(async () => {
+      const client = getClient(session);
+      const cleaned = removeEmptyTopLevel(options as Record<string, unknown>);
+      log.info('Starting crawl', { url: String(url) });
+      const res = await client.crawl(String(url), {
+        ...(cleaned as any),
+        origin: ORIGIN,
+      });
+      // Crawl results use truncation only (no summarization — multi-page)
+      return await processResponse(res, {
+        url: String(url),
+        skipSummarization: true,
+      });
+    }, { tool: 'scorch_crawl', url: String(url) });
   },
 });
 
@@ -694,9 +745,11 @@ Check the status of a crawl job.
     args: unknown,
     { session }: { session?: SessionData }
   ): Promise<string> => {
-    const client = getClient(session);
-    const res = await client.getCrawlStatus((args as any).id as string);
-    return asText(res);
+    return safeExecute(async () => {
+      const client = getClient(session);
+      const res = await client.getCrawlStatus((args as any).id as string);
+      return asText(res);
+    }, { tool: 'scorch_check_crawl_status' });
   },
 });
 
@@ -751,22 +804,25 @@ Extract structured information from web pages using LLM capabilities. Supports b
     args: unknown,
     { session, log }: { session?: SessionData; log: Logger }
   ): Promise<string> => {
-    const client = getClient(session);
     const a = args as Record<string, unknown>;
-    log.info('Extracting from URLs', {
-      count: Array.isArray(a.urls) ? a.urls.length : 0,
-    });
-    const extractBody = removeEmptyTopLevel({
-      urls: a.urls as string[],
-      prompt: a.prompt as string | undefined,
-      schema: (a.schema as Record<string, unknown>) || undefined,
-      allowExternalLinks: a.allowExternalLinks as boolean | undefined,
-      enableWebSearch: a.enableWebSearch as boolean | undefined,
-      includeSubdomains: a.includeSubdomains as boolean | undefined,
-      origin: ORIGIN,
-    });
-    const res = await client.extract(extractBody as any);
-    return asText(res);
+    return safeExecute(async () => {
+      const client = getClient(session);
+      log.info('Extracting from URLs', {
+        count: Array.isArray(a.urls) ? a.urls.length : 0,
+      });
+      const extractBody = removeEmptyTopLevel({
+        urls: a.urls as string[],
+        prompt: a.prompt as string | undefined,
+        schema: (a.schema as Record<string, unknown>) || undefined,
+        allowExternalLinks: a.allowExternalLinks as boolean | undefined,
+        enableWebSearch: a.enableWebSearch as boolean | undefined,
+        includeSubdomains: a.includeSubdomains as boolean | undefined,
+        origin: ORIGIN,
+      });
+      const res = await client.extract(extractBody as any);
+      // Extract returns structured data — skip summarization
+      return await processResponse(res, { skipSummarization: true });
+    }, { tool: 'scorch_extract' });
   },
 });
 

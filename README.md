@@ -1,52 +1,51 @@
 # ScorchCrawl
 
-**Open-source, Copilot SDK-compliant MCP server for web scraping with stealth bot-detection bypass.**
+**Turn websites into LLM-ready data — self-hosted, with stealth bot-detection bypass.**
 
-ScorchCrawl gives GitHub Copilot (and any MCP-compatible client) the ability to scrape, search, crawl, map, and extract data from the web — including sites with aggressive anti-bot protections. It runs as a self-hosted Docker stack with a single `docker compose up -d`.
+[ScorchCrawl](https://github.com/user/scorchcrawl) is an MCP server that scrapes, crawls, searches, maps, and extracts structured data from any website — including sites with aggressive anti-bot protections. It powers GitHub Copilot and any MCP-compatible client with real-time web context.
 
 > **Based on [Firecrawl](https://github.com/mendableai/firecrawl) (AGPL-3.0).** This project is NOT affiliated with, endorsed by, or sponsored by Firecrawl or Mendable/Sideguide Technologies Inc. See [LICENSE](LICENSE) for details.
 
-## Features
+---
 
-- **MCP Protocol** — Full [Model Context Protocol](https://modelcontextprotocol.io/) compliance via Streamable HTTP transport
-- **GitHub Copilot SDK** — Native Copilot agent engine for autonomous web research
-- **Stealth Mode** — Playwright + Browserless with stealth plugins to bypass bot detection
-- **Self-Contained** — One `docker compose up -d` deploys everything: API, workers, browser pool, Redis, RabbitMQ, PostgreSQL
-- **Local Proxy Mode** — Optionally route scraping through the client's residential IP
-- **Rate Limiting** — Application-level concurrency, sliding-window, and quota monitoring
-- **Reverse Proxy Ready** — Optional nginx config for exposing behind HTTPS with API key auth
+## Why ScorchCrawl?
 
-## Architecture
+- **LLM-ready output** — Clean markdown, structured JSON, screenshots, HTML, and more
+- **MCP native** — Full [Model Context Protocol](https://modelcontextprotocol.io/) compliance; works with VS Code Copilot, Claude Desktop, and any MCP client
+- **Stealth mode** — Playwright + Browserless with stealth plugins to bypass bot detection
+- **Copilot SDK agent** — Optional autonomous web research agent powered by GitHub Copilot SDK
+- **Self-hosted** — One `docker compose up -d` deploys everything on your own infrastructure
+- **Local proxy** — Route scraping through your residential IP instead of the server's datacenter IP
+- **Reverse proxy ready** — Optional nginx config for HTTPS + API key auth
 
-```
-┌────────────────────────────────────────────────────┐
-│  Client (VS Code / Copilot / MCP Client)           │
-│  └─ scorchcrawl-mcp (npm package)                  │
-└──────────────────┬─────────────────────────────────┘
-                   │ MCP over Streamable HTTP
-                   ▼
-┌────────────────────────────────────────────────────┐
-│  ScorchCrawl MCP Server (port 3000)                │
-│  ├─ Copilot SDK Agent Engine                       │
-│  ├─ Rate Limiter & Quota Monitor                   │
-│  └─ Tool Registry                                  │
-└──────────────────┬─────────────────────────────────┘
-                   │ Internal HTTP
-                   ▼
-┌────────────────────────────────────────────────────┐
-│  ScorchCrawl API (port 3002)                       │
-│  ├─ Scrape / Search / Crawl / Map / Extract        │
-│  ├─ Worker Queue (RabbitMQ)                        │
-│  ├─ Playwright Stealth Service                     │
-│  └─ Browserless Chrome Pool                        │
-├────────────────────────────────────────────────────┤
-│  Redis │ RabbitMQ │ PostgreSQL                     │
-└────────────────────────────────────────────────────┘
-```
+---
 
-## Quick Start
+## MCP Tools
 
-### 1. Clone & Configure
+| Tool | Description |
+|------|-------------|
+| `scorch_scrape` | Scrape a single URL (markdown, JSON, HTML, screenshot, branding) |
+| `scorch_search` | Search the web and get full page content from results |
+| `scorch_crawl` | Crawl multiple pages from a website |
+| `scorch_map` | Discover all URLs on a website instantly |
+| `scorch_extract` | LLM-powered structured data extraction |
+| `scorch_agent` | Autonomous web research agent (Copilot SDK) — *requires `GITHUB_TOKEN`* |
+| `scorch_agent_status` | Check agent job status |
+| `scorch_agent_models` | List available agent models |
+| `scorch_agent_rate_limit_status` | Check rate limit status |
+| `scorch_check_crawl_status` | Check crawl job progress |
+
+---
+
+## Self-Hosting
+
+### Prerequisites
+
+- Docker ([install](https://docs.docker.com/get-docker/))
+
+### 1. Set Environment Variables
+
+Clone the repo and create your `.env`:
 
 ```bash
 git clone https://github.com/user/scorchcrawl.git
@@ -54,30 +53,43 @@ cd scorchcrawl
 cp .env.example .env
 ```
 
-Edit `.env` with your settings:
-
+`.env`:
 ```env
-# REQUIRED: Your GitHub Personal Access Token (for Copilot SDK agent)
-GITHUB_TOKEN=ghp_your_token_here
+# ===== Optional ENVs ======
 
-# OPTIONAL: Allow clients to use your server as a reverse proxy
-ENABLE_REVERSE_PROXY=false
+# GitHub PAT with `copilot` scope — enables the scorch_agent tool.
+# If omitted, the 7 core tools still work; only the agent tools are disabled.
+# GITHUB_TOKEN=ghp_your_token_here
 
-# OPTIONAL: Bind to all interfaces (for remote access)
-# MCP_HOST=0.0.0.0
+# ===== Network =====
+
+# Bind to localhost only (default). Set to 0.0.0.0 for remote access.
+# MCP_HOST=127.0.0.1
+# SCORCHCRAWL_HOST=127.0.0.1
+
+# ===== Proxy / LLM =====
+
+# PROXY_SERVER=http://proxy.example.com:8080
+# PROXY_USERNAME=
+# PROXY_PASSWORD=
+
+# OpenAI-compatible API for scorch_extract JSON extraction
+# OPENAI_API_KEY=
+# OPENAI_BASE_URL=
+# MODEL_NAME=
 ```
 
-### 2. Deploy with Docker Compose
+### 2. Build and Run
 
 ```bash
+docker compose build
 docker compose up -d
 ```
 
-That's it. The full stack starts:
+This runs a local instance of ScorchCrawl. The scraping API is available at `http://localhost:24786`.
 
 | Service | Port | Description |
 |---------|------|-------------|
-| `scorchcrawl-mcp` | `127.0.0.1:24787` | MCP server (connect your client here) |
 | `scorchcrawl-api` | `127.0.0.1:24786` | Scraping API |
 | `playwright` | internal | Stealth browser service |
 | `browserless` | internal | Chrome browser pool |
@@ -89,30 +101,41 @@ Check status:
 
 ```bash
 docker compose ps
-docker compose logs -f scorchcrawl-mcp
+docker compose logs -f scorchcrawl-api
 ```
 
-### 3. Run with Docker (standalone container)
-
-If you only want to run the MCP server (and provide your own scraping API):
+### 3. *(Optional)* Test the API
 
 ```bash
-docker build -t scorchcrawl-mcp ./server
-
-docker run -d \
-  --name scorchcrawl-mcp \
-  -p 127.0.0.1:24787:3000 \
-  -e HTTP_STREAMABLE_SERVER=true \
-  -e SCORCHCRAWL_API_URL=http://your-scraping-api:3002 \
-  -e GITHUB_TOKEN=ghp_your_token_here \
-  scorchcrawl-mcp
+curl -X POST http://localhost:24786/v1/scrape \
+    -H 'Content-Type: application/json' \
+    -d '{"url": "https://example.com"}'
 ```
 
-### 4. Configure Your MCP Client
+---
 
-#### VS Code (settings.json)
+## Connect Your MCP Client
 
-For a **local** ScorchCrawl server:
+There are two ways to connect VS Code (or any MCP client) to ScorchCrawl. The choice determines what you can configure per-client:
+
+| | **SSE** (`"type": "http"`) | **stdio** (`"type": "stdio"`) |
+|---|---|---|
+| How it works | VS Code connects directly to the scraping API over HTTP | You run the MCP server locally as a Node.js process; it connects to the scraping API |
+| Setup | Just a URL — nothing to install | Clone the repo, run `npm install && npm run build` in `server/` |
+| `GITHUB_TOKEN` | Set on the **server** (`.env`); **cannot** be overridden per-client | Set in the client's `env` block; **your own** token, used directly |
+| `SCORCHCRAWL_LOCAL_PROXY` | **Not available** — scraping always uses the server's IP | Set in the client's `env` block; routes scraping through your local IP |
+| Custom TLS certs | Not available | Set `NODE_EXTRA_CA_CERTS` in the client's `env` block |
+| Reverse proxy | Not configurable from per-client — server decides | Configure `SCORCHCRAWL_API_URL` to point at the proxy endpoint |
+
+> **TL;DR:** SSE is the easiest setup — just a URL. stdio gives you full per-client control over your GitHub token, local proxy, and TLS certs.
+
+---
+
+### SSE — Simple Connection
+
+Point your client at the scraping API. No per-client configuration of `GITHUB_TOKEN` or proxy — those are set on the server.
+
+#### Local scraping engine (Docker on your machine)
 
 ```json
 {
@@ -127,7 +150,9 @@ For a **local** ScorchCrawl server:
 }
 ```
 
-For a **remote** server behind nginx with API key auth:
+#### Remote scraping engine (Docker on a server)
+
+If the server is behind nginx with HTTPS + API key auth (see [docs/reverse-proxy.md](docs/reverse-proxy.md)):
 
 ```json
 {
@@ -142,116 +167,164 @@ For a **remote** server behind nginx with API key auth:
 }
 ```
 
-#### Claude Desktop (claude_desktop_config.json)
+---
+
+### stdio — Full Control
+
+Run the MCP server locally as a Node.js process. You can set your own `GITHUB_TOKEN`, enable local proxy, and configure custom TLS certs.
+
+#### Build the MCP server
+
+```bash
+cd server
+npm install
+npm run build
+```
+
+#### Local scraping engine (Docker on your machine)
 
 ```json
 {
-  "mcpServers": {
-    "scorchcrawl": {
-      "command": "npx",
-      "args": ["scorchcrawl-mcp"],
-      "env": {
-        "SCORCHCRAWL_URL": "http://localhost:24787"
+  "mcp": {
+    "servers": {
+      "scorchcrawl": {
+        "type": "stdio",
+        "command": "node",
+        "args": ["/path/to/scorchcrawl/server/dist/index.js"],
+        "env": {
+          "SCORCHCRAWL_API_URL": "http://localhost:24786",
+          "SCORCHCRAWL_API_KEY": "local-dummy-key",
+          "GITHUB_TOKEN": "ghp_your_own_token_here",
+          "SCORCHCRAWL_LOCAL_PROXY": "true"
+        }
       }
     }
   }
 }
 ```
 
-#### Copilot CLI / Other MCP Clients
+#### Remote scraping engine (Docker on a server, behind reverse proxy)
 
-Install the `scorchcrawl-mcp` client package:
-
-```bash
-npm install -g scorchcrawl-mcp
+```json
+{
+  "mcp": {
+    "servers": {
+      "scorchcrawl": {
+        "type": "stdio",
+        "command": "node",
+        "args": ["/path/to/scorchcrawl/server/dist/index.js"],
+        "env": {
+          "SCORCHCRAWL_API_URL": "https://your-server.com/mcp-api/scorchcrawl/YOUR_API_KEY",
+          "SCORCHCRAWL_API_KEY": "local-dummy-key",
+          "SCORCHCRAWL_LOCAL_PROXY": "true",
+          "GITHUB_TOKEN": "ghp_your_own_token_here",
+          "NODE_EXTRA_CA_CERTS": "/path/to/custom-certs.pem"
+        },
+        "startupTimeout": 300000
+      }
+    }
+  }
+}
 ```
 
-Then run:
+#### Claude Desktop (stdio only)
 
-```bash
-SCORCHCRAWL_URL=http://localhost:24787 scorchcrawl-mcp
+```json
+{
+  "mcpServers": {
+    "scorchcrawl": {
+      "command": "node",
+      "args": ["/path/to/scorchcrawl/server/dist/index.js"],
+      "env": {
+        "SCORCHCRAWL_API_URL": "http://localhost:24786",
+        "SCORCHCRAWL_API_KEY": "local-dummy-key",
+        "GITHUB_TOKEN": "ghp_your_own_token_here"
+      }
+    }
+  }
+}
 ```
 
-This bridges stdio to HTTP so any MCP client that speaks stdio can connect to a remote ScorchCrawl server.
+#### Client Environment Variables
 
-## Getting a GitHub Token for Copilot
+| Variable | Description |
+|----------|-------------|
+| `SCORCHCRAWL_API_URL` | URL of the scraping API — `http://localhost:24786` for local, or the remote proxy URL |
+| `SCORCHCRAWL_API_KEY` | API key for the scraping engine. Use `local-dummy-key` if auth is in the URL or disabled. |
+| `GITHUB_TOKEN` | Your GitHub PAT with `copilot` scope. Used directly by the agent engine running on your machine. |
+| `SCORCHCRAWL_LOCAL_PROXY` | Set to `true` to route scraping through your local IP instead of the server's. |
+| `NODE_EXTRA_CA_CERTS` | Path to custom CA certificates (corporate proxies, self-signed certs). |
 
-The agent engine uses the GitHub Copilot SDK, which requires a GitHub Personal Access Token (PAT).
+---
 
-### Option 1: Use your existing Copilot subscription
+## GitHub Token (Copilot SDK Agent)
+
+The `GITHUB_TOKEN` is **optional**. It enables the Copilot SDK agent engine — an autonomous research agent that can chain multiple scrape/search/extract calls.
+
+| With `GITHUB_TOKEN` | Without `GITHUB_TOKEN` |
+|---------------------|------------------------|
+| All 10 tools available | 7 core tools work fine |
+| `scorch_agent` ✅ | `scorch_agent` ❌ |
+| `scorch_agent_status` ✅ | `scorch_agent_status` ❌ |
+| `scorch_agent_models` ✅ | `scorch_agent_models` ❌ |
+
+**How to get one:**
 
 1. Go to [github.com/settings/tokens](https://github.com/settings/tokens)
 2. Click **Generate new token (classic)**
-3. Select scopes: `copilot` (required)
-4. Copy the token into your `.env` as `GITHUB_TOKEN`
+3. Select scope: **`copilot`**
+4. Copy the token
 
-### Option 2: Use a GitHub App token
+**Where to set it:**
 
-If you're deploying for a team/org:
+- **SSE mode:** Set `GITHUB_TOKEN` in the server's `.env` file. All SSE clients share this token.
+- **stdio mode:** Set `GITHUB_TOKEN` in the client's `env` block. Each user has their own token.
 
-1. Create a GitHub App at [github.com/settings/apps](https://github.com/settings/apps)
-2. Grant the `copilot` permission
-3. Install the app and generate an installation token
-4. Set `GITHUB_TOKEN` to the installation token
+For team deployments: create a [GitHub App](https://github.com/settings/apps) with the `copilot` permission and use installation tokens.
 
-### Option 3: Per-user tokens (recommended for shared servers)
+---
 
-Each user can pass their own token via the `x-copilot-token` or `x-github-token` header. The server falls back to `GITHUB_TOKEN` if no per-user token is provided.
+## Reverse Proxy
+
+For remote deployments, use nginx with HTTPS + API key auth to secure access.
+
+1. Set `ENABLE_REVERSE_PROXY=true` and `MCP_HOST=0.0.0.0` in the server's `.env`
+2. Configure nginx — see [docs/reverse-proxy.md](docs/reverse-proxy.md) for a complete example
+3. Clients connect through the proxy URL (with API key in the path)
+
+If `ENABLE_REVERSE_PROXY=false` (default), the server binds to `127.0.0.1` only.
+
+---
 
 ## Configuration
 
-### Environment Variables
+### Server Environment Variables (`.env`)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `GITHUB_TOKEN` | — | GitHub PAT with `copilot` scope (required for agent) |
-| `ENABLE_REVERSE_PROXY` | `false` | Allow remote clients to connect |
-| `MCP_PORT` | `24787` | MCP server port |
-| `MCP_HOST` | `127.0.0.1` | MCP bind address (`0.0.0.0` for remote) |
-| `SCORCHCRAWL_PORT` | `24786` | Scraping API port |
+| `GITHUB_TOKEN` | — | GitHub PAT with `copilot` scope (agent tools) |
+| `ENABLE_REVERSE_PROXY` | `false` | Accept external connections behind nginx |
+| `MCP_HOST` | `127.0.0.1` | Bind address (`0.0.0.0` for remote access) |
+| `MCP_PORT` | `24787` | MCP server external port |
 | `SCORCHCRAWL_HOST` | `127.0.0.1` | Scraping API bind address |
-| `COPILOT_AGENT_MODELS` | `gpt-4.1,gpt-4o,gpt-5-mini` | Allowed models for the agent |
+| `SCORCHCRAWL_PORT` | `24786` | Scraping API external port |
+| `COPILOT_AGENT_MODELS` | `gpt-4.1,gpt-4o,gpt-5-mini` | Allowed agent models |
 | `COPILOT_AGENT_DEFAULT_MODEL` | `gpt-4.1` | Default agent model |
-| `RATE_LIMIT_MAX_GLOBAL_CONCURRENCY` | `10` | Max concurrent agent jobs |
-| `RATE_LIMIT_MAX_PER_USER_CONCURRENCY` | `3` | Max concurrent agent jobs per user |
 | `NUM_WORKERS_PER_QUEUE` | `16` | Scraping worker parallelism |
 | `MAX_CONCURRENT_JOBS` | `10` | Max concurrent crawl jobs |
 | `BROWSER_POOL_SIZE` | `10` | Chrome browser instances |
+| `PROXY_SERVER` | — | HTTP proxy for outbound scraping |
+| `OPENAI_API_KEY` | — | OpenAI key for `scorch_extract` |
 
-### Reverse Proxy Mode
+See [docs/configuration.md](docs/configuration.md) for the complete reference.
 
-When `ENABLE_REVERSE_PROXY=true`, the server binds to `0.0.0.0` and accepts connections from any client. Use this with an nginx reverse proxy for HTTPS + API key authentication.
-
-See [docs/reverse-proxy.md](docs/reverse-proxy.md) for a full nginx configuration example.
-
-### Local Proxy Mode
-
-Set `SCORCHCRAWL_LOCAL_PROXY=true` in the client environment to route scraping through the client's residential IP instead of the server's datacenter IP.
-
-## MCP Tools
-
-| Tool | Description |
-|------|-------------|
-| `scorch_scrape` | Scrape a single URL (markdown, JSON, HTML, screenshot) |
-| `scorch_search` | Web search with optional content extraction |
-| `scorch_map` | Discover all URLs on a website |
-| `scorch_crawl` | Crawl multiple pages from a website |
-| `scorch_extract` | LLM-powered structured data extraction |
-| `scorch_agent` | Autonomous web research agent (Copilot SDK) |
-| `scorch_agent_status` | Check agent job status |
-| `scorch_agent_models` | List available agent models |
-| `scorch_agent_rate_limit_status` | Check rate limit status |
-| `scorch_check_crawl_status` | Check crawl job progress |
+---
 
 ## Development
 
 ```bash
 cd server
-
-# Install dependencies
 npm install
-
-# Build
 npm run build
 
 # Run locally (stdio mode)
@@ -276,18 +349,49 @@ npm run test:watch
 MCP_TEST_URL=http://localhost:24787 npm run test:integration
 ```
 
-See [docs/testing.md](docs/testing.md) for full details.
+See [docs/testing.md](docs/testing.md) for details.
+
+---
+
+## Troubleshooting
+
+### Docker containers fail to start
+
+Check logs:
+```bash
+docker compose logs scorchcrawl-api
+```
+Ensure all required environment variables are set in `.env` and that Docker services are healthy.
+
+### Connection issues with Redis
+
+Verify Redis is running:
+```bash
+docker compose ps redis
+```
+Check that `REDIS_URL` in `.env` matches the Docker Compose configuration (`redis://redis:6379`).
+
+### Agent tools not working
+
+The `scorch_agent` tools require a valid `GITHUB_TOKEN` with the `copilot` scope. Verify your token at [github.com/settings/tokens](https://github.com/settings/tokens).
+
+### Custom TLS certificates (corporate networks)
+
+If you're behind a corporate proxy with TLS inspection, set `NODE_EXTRA_CA_CERTS` in your stdio client config to point at your CA bundle.
+
+---
 
 ## Documentation
 
 | Document | Description |
 |----------|-------------|
-| [docs/how-it-works.md](docs/how-it-works.md) | **How ScorchCrawl-MCP works** — request lifecycle, architecture, tool registry, agent engine |
-| [docs/configuration.md](docs/configuration.md) | **Complete configuration reference** — every env variable explained with defaults and examples |
+| [docs/how-it-works.md](docs/how-it-works.md) | Request lifecycle, architecture, tool registry, agent engine |
+| [docs/configuration.md](docs/configuration.md) | Complete configuration reference |
 | [docs/architecture.md](docs/architecture.md) | System architecture and service roles |
 | [docs/reverse-proxy.md](docs/reverse-proxy.md) | Nginx reverse proxy with API key auth |
 | [docs/testing.md](docs/testing.md) | Testing guide and CI/CD |
-| [.env.example](.env.example) | All configuration variables with defaults |
+
+---
 
 ## License
 

@@ -127,8 +127,17 @@ jobs:
       - name: Start MCP server
         run: |
           HTTP_STREAMABLE_SERVER=true PORT=24787 HOST=0.0.0.0 \
+            SCORCHCRAWL_API_URL=http://localhost:9999 \
             node dist/index.js &
-          sleep 5
+
+          # Wait up to 15s for the server to be ready
+          for i in $(seq 1 15); do
+            if curl -sf http://localhost:24787/health; then
+              echo "MCP server is ready"
+              break
+            fi
+            sleep 1
+          done
 
       - name: Run integration tests
         env:

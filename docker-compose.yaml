@@ -8,6 +8,7 @@ name: scorchcrawl
 # Services:
 #   - scorchcrawl-mcp:  MCP server (Copilot SDK agent + tool registry)
 #   - scorchcrawl-api:  Scraping engine (based on Firecrawl, AGPL-3.0)
+#   - searxng:          Privacy-preserving metasearch (default search provider)
 #   - playwright:       Stealth browser service
 #   - browserless:      Chrome browser pool
 #   - redis:            Cache & queue backend
@@ -51,6 +52,11 @@ x-common-env: &common-env
   PROXY_SERVER: ${PROXY_SERVER:-}
   PROXY_USERNAME: ${PROXY_USERNAME:-}
   PROXY_PASSWORD: ${PROXY_PASSWORD:-}
+  # --- Search: SearXNG (anonymized metasearch, enabled by default) ---
+  # Set SEARXNG_ENDPOINT to empty string to disable and fall back to DuckDuckGo
+  SEARXNG_ENDPOINT: ${SEARXNG_ENDPOINT:-http://searxng:8080}
+  SEARXNG_ENGINES: ${SEARXNG_ENGINES:-}
+  SEARXNG_CATEGORIES: ${SEARXNG_CATEGORIES:-}
   # --- Optional: LLM ---
   OPENAI_API_KEY: ${OPENAI_API_KEY:-}
   OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
@@ -108,12 +114,36 @@ services:
       redis: { condition: service_started }
       playwright: { condition: service_started }
       rabbitmq: { condition: service_healthy }
+      searxng: { condition: service_healthy }
     ports:
       - "${SCORCHCRAWL_HOST:-127.0.0.1}:${SCORCHCRAWL_PORT:-24786}:${INTERNAL_PORT:-3002}"
     command: node dist/src/harness.js --start-docker
     cpus: 4.0
     mem_limit: 8G
     memswap_limit: 8G
+
+  # ===========================================================================
+  # Search — SearXNG (privacy-preserving metasearch engine)
+  # Anonymizes all web searches by proxying through multiple search backends.
+  # To disable: set SEARXNG_ENDPOINT= (empty) in .env; engine falls back to DDG.
+  # ===========================================================================
+  searxng:
+    image: searxng/searxng:latest
+    networks: [backend]
+    restart: unless-stopped
+    volumes:
+      - ./engine/searxng/settings.yml:/etc/searxng/settings.yml:ro
+    environment:
+      SEARXNG_BASE_URL: http://searxng:8080
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "5m", max-file: "2", compress: "true" }
 
   # ===========================================================================
   # Stealth Browser Services

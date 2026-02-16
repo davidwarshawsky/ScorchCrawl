@@ -1,0 +1,19 @@
+# SearXNG settings for ScorchCrawl
+# This enables JSON API access so the scraping engine can query SearXNG programmatically.
+# See: https://docs.searxng.org/admin/settings/settings_search.html
+
+use_default_settings: true
+
+search:
+  formats:
+    - html
+    - json
+
+server:
+  # Bind to all interfaces inside the container
+  bind_address: "0.0.0.0"
+  port: 8080
+  # Secret key for session encryption (auto-generated if empty)
+  secret_key: ""
+  # Limiter disabled — internal use only, not public-facing
+  limiter: false

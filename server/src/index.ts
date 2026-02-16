@@ -417,6 +417,23 @@ ${
         return asText(res);
       }
 
+      // SPA detected: the local fetch returned a JS-only shell.
+      // Retry via the engine's Playwright scraper with waitFor for JS rendering.
+      if (!localResult.success && localResult.error === 'SPA_SKELETON_DETECTED') {
+        const waitMs = (cleaned as any).waitFor || 5000;
+        log.info(
+          `SPA skeleton detected, retrying via engine with waitFor=${waitMs}ms`,
+          { url: String(url) },
+        );
+        const client = getClient(session);
+        const res = await client.scrape(String(url), {
+          ...cleaned,
+          waitFor: waitMs,
+          origin: ORIGIN,
+        } as any);
+        return asText(res);
+      }
+
       return asText(localResult);
     }
 

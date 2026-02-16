@@ -5,6 +5,12 @@
  *
  * Falls back to the remote ScorchCrawl API for features that need server-side
  * processing (search, crawl, extract, agent, JSON schema extraction).
+ *
+ * SPA Detection:
+ *   When the fetched HTML looks like a Single Page Application shell
+ *   (minimal text, loading indicators, heavy JS bundles), the scraper returns
+ *   a `SPA_SKELETON_DETECTED` error so the caller can retry via the engine's
+ *   Playwright-backed scraper which executes JavaScript.
  */
 
 import TurndownService from 'turndown';
@@ -46,6 +52,120 @@ export interface LocalScrapeResult {
     };
   };
   error?: string;
+}
+
+// ---------------------------------------------------------------------------
+// SPA / JS-rendered page detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Common phrases found in SPA shell HTML before JS hydrates the page.
+ * Matched case-insensitively against the visible body text.
+ */
+const SPA_LOADING_PATTERNS = [
+  'loading...',
+  'loading…',
+  'please wait',
+  'just a moment',
+  'checking your browser',
+  'one moment please',
+  'redirecting',
+  'enable javascript',
+  'javascript is required',
+  'javascript must be enabled',
+  'this app requires javascript',
+  'you need to enable javascript',
+  'noscript',
+];
+
+/**
+ * CSS selectors whose sole presence (with no other meaningful content)
+ * strongly indicates a JS-only SPA shell.
+ */
+const SPA_ROOT_SELECTORS = [
+  '#root',          // React (CRA, Vite)
+  '#app',           // Vue
+  '#__next',        // Next.js
+  '#__nuxt',        // Nuxt
+  '#svelte',        // SvelteKit
+  'app-root',       // Angular
+  '#___gatsby',     // Gatsby
+  '#main-app',      // misc
+];
+
+/** Minimum characters of visible text for a page to be considered "real" content. */
+const MIN_MEANINGFUL_TEXT_LENGTH = 200;
+
+/** Ratio: if (script bytes / total HTML bytes) exceeds this, it's likely a SPA shell. */
+const SCRIPT_HEAVY_RATIO = 0.65;
+
+/**
+ * Inspect raw HTML + extracted text to decide if the page is a SPA shell
+ * that hasn't been hydrated (no JS execution happened).
+ *
+ * Returns a short reason string if SPA-like, or `null` if the page looks real.
+ */
+export function detectSPASkeleton(
+  rawHtml: string,
+  _bodyText: string,
+  $: cheerio.CheerioAPI,
+): string | null {
+  // Get visible text only (strip script, style, noscript content)
+  const $clone = cheerio.load($.html());
+  $clone('script, style, noscript').remove();
+  const visibleText = $clone('body').text() || '';
+  const trimmedText = visibleText.replace(/\s+/g, ' ').trim();
+  const lowerText = trimmedText.toLowerCase();
+
+  // 1. Very little visible text — likely a shell that JS would populate
+  if (trimmedText.length < MIN_MEANINGFUL_TEXT_LENGTH) {
+    // Check for SPA root containers
+    for (const sel of SPA_ROOT_SELECTORS) {
+      const el = $(sel);
+      if (el.length > 0) {
+        const innerText = el.text().replace(/\s+/g, ' ').trim();
+        if (innerText.length < MIN_MEANINGFUL_TEXT_LENGTH) {
+          return `SPA root container "${sel}" with minimal content (${innerText.length} chars)`;
+        }
+      }
+    }
+
+    // Check for loading phrases in the sparse text
+    for (const pattern of SPA_LOADING_PATTERNS) {
+      if (lowerText.includes(pattern)) {
+        return `Loading indicator detected: "${pattern}"`;
+      }
+    }
+
+    // Even without a known root, < 50 chars of body text is almost certainly a shell
+    if (trimmedText.length < 50) {
+      return `Near-empty body text (${trimmedText.length} chars)`;
+    }
+  }
+
+  // 2. Loading phrases in an otherwise short page (< 500 chars)
+  if (trimmedText.length < 500) {
+    for (const pattern of SPA_LOADING_PATTERNS) {
+      if (lowerText.includes(pattern)) {
+        return `Short page with loading indicator: "${pattern}"`;
+      }
+    }
+  }
+
+  // 3. Script-heavy pages: mostly <script> tags, very little content
+  const scriptContent = $('script')
+    .toArray()
+    .reduce((sum, el) => sum + ($(el).html()?.length || 0), 0);
+  const htmlLength = rawHtml.length;
+  if (
+    htmlLength > 1000 &&
+    scriptContent / htmlLength > SCRIPT_HEAVY_RATIO &&
+    trimmedText.length < MIN_MEANINGFUL_TEXT_LENGTH
+  ) {
+    return `Script-heavy page (${Math.round((scriptContent / htmlLength) * 100)}% scripts, ${trimmedText.length} chars text)`;
+  }
+
+  return null;
 }
 
 /**
@@ -214,6 +334,13 @@ export async function localScrape(
         }
       });
       data.links = [...new Set(links)];
+    }
+
+    // --- SPA detection: check if the fetched content is a JS-only shell ---
+    const bodyText = $('body').text() || '';
+    const spaReason = detectSPASkeleton(rawHtml, bodyText, $);
+    if (spaReason) {
+      return { success: false, error: 'SPA_SKELETON_DETECTED', data };
     }
 
     return { success: true, data };

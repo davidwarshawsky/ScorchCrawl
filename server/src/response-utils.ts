@@ -548,10 +548,33 @@ export async function summarizeIfNeeded(
 
     try {
       const response = await session.sendAndWait({ prompt: markdown });
-      const summary = response?.data?.content || response?.content || '';
 
-      if (typeof summary !== 'string' || summary.length < 50) {
+      // Extract content from response — handle multiple possible shapes
+      let summary: string = '';
+      if (response && typeof response === 'object') {
+        const r = response as Record<string, unknown>;
+        // Shape 1: { data: { content: "..." } } (most common)
+        if (r.data && typeof r.data === 'object') {
+          const d = r.data as Record<string, unknown>;
+          if (typeof d.content === 'string') summary = d.content;
+          else if (typeof d.text === 'string') summary = d.text;
+        }
+        // Shape 2: { content: "..." }
+        if (!summary && typeof r.content === 'string') summary = r.content;
+        // Shape 3: { text: "..." }
+        if (!summary && typeof r.text === 'string') summary = r.text;
+        // Shape 4: { message: { content: "..." } }
+        if (!summary && r.message && typeof r.message === 'object') {
+          const m = r.message as Record<string, unknown>;
+          if (typeof m.content === 'string') summary = m.content;
+        }
+      } else if (typeof response === 'string') {
+        summary = response;
+      }
+
+      if (!summary || summary.length < 50) {
         // Summarization returned garbage — fall back
+        console.error(`[Summarization] Response too short or empty (${summary.length} chars), response keys: ${response ? Object.keys(response as object).join(', ') : 'null'}`);
         return { markdown, summarized: false };
       }
 
@@ -579,9 +602,11 @@ export async function summarizeIfNeeded(
       try { await session.destroy(); } catch { /* ignore cleanup */ }
     }
   } catch (err) {
-    // Summarization failed — fall back silently
+    // Summarization failed — fall back silently but log for debugging
     const errMsg = err instanceof Error ? err.message : String(err);
-    console.error(`[Summarization] Failed: ${errMsg}`);
+    const errStack = err instanceof Error ? err.stack : '';
+    console.error(`[Summarization] Failed for ${url}: ${errMsg}`);
+    if (errStack) console.error(`[Summarization] Stack: ${errStack}`);
     return {
       markdown,
       summarized: false,

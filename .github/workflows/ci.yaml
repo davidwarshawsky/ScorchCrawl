@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # =========================================================================
+  # Unit Tests
+  # =========================================================================
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: server/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm vitest run --reporter=verbose
+
+  # =========================================================================
+  # TypeScript Type Check
+  # =========================================================================
+  typecheck:
+    name: TypeScript Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: server/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm tsc --noEmit
+
+  # =========================================================================
+  # Docker Build Smoke Test
+  # =========================================================================
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build MCP server image
+        run: docker build -t scorchcrawl-mcp:ci ./server
+
+      - name: Smoke test — server starts and serves /health
+        run: |
+          docker run -d --name mcp-ci \
+            -e HTTP_STREAMABLE_SERVER=true \
+            -e PORT=3000 \
+            -e HOST=0.0.0.0 \
+            -p 3000:3000 \
+            scorchcrawl-mcp:ci
+
+          # Wait up to 30s for the health endpoint
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/health; then
+              echo "Health check passed"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Health check failed after 30s"
+          docker logs mcp-ci
+          exit 1
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f mcp-ci || true
+
+  # =========================================================================
+  # Integration Tests (only on main, needs running stack)
+  # =========================================================================
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    needs: [unit-tests, docker-build]
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: server/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+
+      - name: Start MCP server
+        run: |
+          HTTP_STREAMABLE_SERVER=true PORT=24787 HOST=0.0.0.0 \
+            node dist/index.js &
+          sleep 5
+
+      - name: Run integration tests
+        env:
+          MCP_TEST_URL: http://localhost:24787
+        run: pnpm vitest run --config vitest.integration.config.ts --reporter=verbose

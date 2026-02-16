@@ -686,7 +686,10 @@ export async function processResponse(
   // Step 1: Try AI summarization on markdown content
   if (!options?.skipSummarization && options?.getCopilotClientFn) {
     const md = extractMarkdown(data);
-    if (md && wordCount(md) > SUMMARIZE_AFTER_WORDS && SUMMARIZE_AFTER_WORDS > 0) {
+    const wc = md ? wordCount(md) : 0;
+    console.error(`[Summarization] Check: markdown=${md ? md.length : 0} chars, ${wc} words, threshold=${SUMMARIZE_AFTER_WORDS}`);
+    if (md && wc > SUMMARIZE_AFTER_WORDS && SUMMARIZE_AFTER_WORDS > 0) {
+      console.error(`[Summarization] Attempting summarization for ${options.url || 'unknown url'} (${wc} words)`);
       const result = await summarizeIfNeeded(
         md,
         options.url || '',
@@ -698,7 +701,13 @@ export async function processResponse(
         const updated = injectMarkdown(data, result.markdown, result.meta || {});
         return JSON.stringify(updated, null, 2);
       }
+      // Summarization was attempted but failed — inject failure metadata and fall through to truncation
+      if (result.meta) {
+        console.error(`[Summarization] Failed, falling back to truncation. Meta:`, JSON.stringify(result.meta));
+      }
     }
+  } else {
+    console.error(`[Summarization] Skipped: skipSummarization=${options?.skipSummarization}, hasCopilotFn=${!!options?.getCopilotClientFn}`);
   }
 
   // Step 2: Content truncation

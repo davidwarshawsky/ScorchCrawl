@@ -39,6 +39,11 @@ const SUMMARIZE_MAX_PER_MINUTE = parseInt(
   10,
 );
 
+const SUMMARIZE_TIMEOUT_MS = parseInt(
+  process.env.SCORCHCRAWL_SUMMARIZE_TIMEOUT_MS || '300000',
+  10,
+);
+
 // ---------------------------------------------------------------------------
 // Feature 1: Error Mapping
 // ---------------------------------------------------------------------------
@@ -547,7 +552,7 @@ export async function summarizeIfNeeded(
     recordSummarization();
 
     try {
-      const response = await session.sendAndWait({ prompt: markdown });
+      const response = await session.sendAndWait({ prompt: markdown }, SUMMARIZE_TIMEOUT_MS);
 
       // Extract content from response — handle multiple possible shapes
       let summary: string = '';

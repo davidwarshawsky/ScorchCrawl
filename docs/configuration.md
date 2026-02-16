@@ -212,6 +212,14 @@ Maximum number of summarization results cached in memory (LRU cache, 30-minute T
 
 Maximum summarization API calls per minute (sliding window). When reached, content falls back to truncation instead of summarization.
 
+#### `SCORCHCRAWL_SUMMARIZE_TIMEOUT_MS`
+
+| | |
+|---|---|
+| **Default** | `300000` |
+
+Maximum time (in milliseconds) to wait for the Copilot SDK summarization session to become idle. Increase this if large pages routinely time out.
+
 ---
 
 ## Scraping Engine Configuration
@@ -405,6 +413,7 @@ Documentation flag. When `true`, indicates the server is behind an nginx reverse
 | `SCORCHCRAWL_SUMMARIZE_MODEL` | `gpt-4o` | Response |
 | `SCORCHCRAWL_SUMMARIZE_CACHE_SIZE` | `100` | Response |
 | `SCORCHCRAWL_SUMMARIZE_MAX_PER_MINUTE` | `10` | Response |
+| `SCORCHCRAWL_SUMMARIZE_TIMEOUT_MS` | `300000` | Response |
 | `NUM_WORKERS_PER_QUEUE` | `16` | Scraping |
 | `MAX_CONCURRENT_JOBS` | `10` | Scraping |
 | `BROWSER_POOL_SIZE` | `10` | Scraping |

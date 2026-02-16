@@ -1,0 +1,34 @@
+{
+  "name": "scorchcrawl-mcp",
+  "version": "1.0.0",
+  "description": "MCP client for ScorchCrawl — connect Copilot to a self-hosted stealth web scraping server",
+  "type": "module",
+  "bin": {
+    "scorchcrawl-mcp": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "prepare": "npm run build"
+  },
+  "license": "AGPL-3.0",
+  "dependencies": {
+    "dotenv": "^17.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "mcp",
+    "scorchcrawl",
+    "copilot",
+    "web-scraping",
+    "stealth"
+  ]
+}

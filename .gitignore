@@ -1,0 +1,52 @@
+# =============================================================================
+# ScorchCrawl .gitignore
+# =============================================================================
+
+# --- Environment & Secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Dependencies ---
+node_modules/
+.pnpm-store/
+
+# --- Build outputs ---
+dist/
+*.tsbuildinfo
+
+# --- Logs ---
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# --- OS junk ---
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# --- IDE ---
+.idea/
+.vscode/
+*.code-workspace
+
+# --- Docker ---
+docker-compose.override.yaml
+docker-compose.override.yml
+
+# --- Nginx (deployment-specific, not part of the package) ---
+nginx/
+*.conf
+!docs/**
+
+# --- Test coverage ---
+coverage/
+.nyc_output/
+junit.xml
+
+# --- Misc ---
+*.bak
+*.orig
+*.tmp

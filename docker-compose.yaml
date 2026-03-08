@@ -1,0 +1,187 @@
+name: scorchcrawl
+
+# =============================================================================
+# ScorchCrawl — Core scraping engine stack (no MCP layer)
+#
+# Deploy with: docker compose up -d
+# For MCP server + CLI client, see: https://github.com/davidwarshawsky/scorchcrawl-mcp
+#
+# Services:
+#   - scorchcrawl-api:  Scraping engine (based on Firecrawl, AGPL-3.0)
+#   - searxng:          Privacy-preserving metasearch (default search provider)
+#   - playwright:       Stealth browser service
+#   - browserless:      Chrome browser pool
+#   - redis:            Cache & queue backend
+#   - rabbitmq:         Message broker
+#   - postgres:         Job & metadata storage
+# =============================================================================
+
+x-common-service: &common-service
+  build: ./engine
+  ulimits:
+    nofile: { soft: 65535, hard: 65535 }
+  networks: [backend]
+  extra_hosts: ["host.docker.internal:host-gateway"]
+  logging: &default-logging
+    driver: "json-file"
+    options: { max-size: "10m", max-file: "3", compress: "true" }
+
+x-common-env: &common-env
+  # --- Data stores ---
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+  REDIS_RATE_LIMIT_URL: ${REDIS_URL:-redis://redis:6379}
+  POSTGRES_USER: ${POSTGRES_USER:-postgres}
+  POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+  POSTGRES_DB: ${POSTGRES_DB:-postgres}
+  POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+  POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+  # --- Browser backend ---
+  PLAYWRIGHT_MICROSERVICE_URL: ${PLAYWRIGHT_MICROSERVICE_URL:-http://playwright:3000/scrape}
+  # --- Concurrency ---
+  NUM_WORKERS_PER_QUEUE: ${NUM_WORKERS_PER_QUEUE:-16}
+  CRAWL_CONCURRENT_REQUESTS: ${CRAWL_CONCURRENT_REQUESTS:-20}
+  MAX_CONCURRENT_JOBS: ${MAX_CONCURRENT_JOBS:-10}
+  BROWSER_POOL_SIZE: ${BROWSER_POOL_SIZE:-10}
+  # --- Scraping knobs ---
+  SCRAPE_MAX_ATTEMPTS: ${SCRAPE_MAX_ATTEMPTS:-6}
+  SCRAPE_MAX_PDF_PREFETCHES: ${SCRAPE_MAX_PDF_PREFETCHES:-2}
+  SCRAPE_MAX_DOCUMENT_PREFETCHES: ${SCRAPE_MAX_DOCUMENT_PREFETCHES:-2}
+  SCRAPE_MAX_FEATURE_TOGGLES: ${SCRAPE_MAX_FEATURE_TOGGLES:-3}
+  USE_DB_AUTHENTICATION: ${USE_DB_AUTHENTICATION:-false}
+  # --- Optional: Proxy ---
+  PROXY_SERVER: ${PROXY_SERVER:-}
+  PROXY_USERNAME: ${PROXY_USERNAME:-}
+  PROXY_PASSWORD: ${PROXY_PASSWORD:-}
+  # --- Search: SearXNG (anonymized metasearch, enabled by default) ---
+  # Set SEARXNG_ENDPOINT to empty string to disable and fall back to DuckDuckGo
+  SEARXNG_ENDPOINT: ${SEARXNG_ENDPOINT:-http://searxng:8080}
+  SEARXNG_ENGINES: ${SEARXNG_ENGINES:-}
+  SEARXNG_CATEGORIES: ${SEARXNG_CATEGORIES:-}
+  # --- Optional: LLM ---
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+  MODEL_NAME: ${MODEL_NAME:-}
+  # --- Logging ---
+  LOGGING_LEVEL: ${LOGGING_LEVEL:-info}
+
+services:
+
+  # ===========================================================================
+  # ScorchCrawl API (scraping engine)
+  # ===========================================================================
+  scorchcrawl-api:
+    <<: *common-service
+    container_name: scorchcrawl-api
+    environment:
+      <<: *common-env
+      HOST: "0.0.0.0"
+      PORT: ${INTERNAL_PORT:-3002}
+      EXTRACT_WORKER_PORT: ${EXTRACT_WORKER_PORT:-3004}
+      WORKER_PORT: ${WORKER_PORT:-3005}
+      NUQ_RABBITMQ_URL: amqp://rabbitmq:5672
+      ENV: local
+    depends_on:
+      redis: { condition: service_started }
+      playwright: { condition: service_started }
+      rabbitmq: { condition: service_healthy }
+      searxng: { condition: service_healthy }
+    ports:
+      - "${SCORCHCRAWL_HOST:-127.0.0.1}:${SCORCHCRAWL_PORT:-24786}:${INTERNAL_PORT:-3002}"
+    command: node dist/src/harness.js --start-docker
+    cpus: 4.0
+    mem_limit: 8G
+    memswap_limit: 8G
+
+  # ===========================================================================
+  # Search — SearXNG (privacy-preserving metasearch engine)
+  # Anonymizes all web searches by proxying through multiple search backends.
+  # To disable: set SEARXNG_ENDPOINT= (empty) in .env; engine falls back to DDG.
+  # ===========================================================================
+  searxng:
+    image: searxng/searxng:latest
+    networks: [backend]
+    restart: unless-stopped
+    volumes:
+      - ./engine/searxng/settings.yml:/etc/searxng/settings.yml:ro
+    environment:
+      SEARXNG_BASE_URL: http://searxng:8080
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "5m", max-file: "2", compress: "true" }
+
+  # ===========================================================================
+  # Stealth Browser Services
+  # ===========================================================================
+  playwright:
+    build: ./engine/playwright
+    environment:
+      PORT: 3000
+      PROXY_SERVER: ${PROXY_SERVER:-}
+      PROXY_USERNAME: ${PROXY_USERNAME:-}
+      PROXY_PASSWORD: ${PROXY_PASSWORD:-}
+      BLOCK_MEDIA: ${BLOCK_MEDIA:-}
+      MAX_CONCURRENT_PAGES: ${CRAWL_CONCURRENT_REQUESTS:-20}
+    networks: [backend]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    cpus: 2.0
+    mem_limit: 4G
+    memswap_limit: 4G
+    logging: *default-logging
+    tmpfs:
+      - /tmp/.cache:noexec,nosuid,size=1g
+
+  browserless:
+    image: browserless/chrome:latest
+    environment:
+      DEFAULT_STEALTH: "true"
+      MAX_CONCURRENT_SESSIONS: ${BROWSER_POOL_SIZE:-10}
+      CONNECTION_TIMEOUT: "60000"
+      TOKEN: ${BROWSERLESS_TOKEN:-scorchcrawl-stealth-token}
+    networks: [backend]
+    logging:
+      driver: "json-file"
+      options: { max-size: "5m", max-file: "2", compress: "true" }
+
+  # ===========================================================================
+  # Data Stores
+  # ===========================================================================
+  redis:
+    image: redis:alpine
+    networks: [backend]
+    command: redis-server --bind 0.0.0.0
+    logging:
+      driver: "json-file"
+      options: { max-size: "5m", max-file: "2", compress: "true" }
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    networks: [backend]
+    command: rabbitmq-server
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: "json-file"
+      options: { max-size: "5m", max-file: "2", compress: "true" }
+
+  postgres:
+    build: ./engine/postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    networks: [backend]
+    logging: *default-logging
+
+networks:
+  backend:
+    driver: bridge

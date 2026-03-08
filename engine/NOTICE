@@ -1,0 +1,22 @@
+MODIFICATION NOTICE
+===================
+
+This directory contains source code from Firecrawl
+(https://github.com/mendableai/firecrawl), originally developed by
+Sideguide Technologies Inc. and licensed under the GNU Affero General
+Public License v3.0 (AGPL-3.0).
+
+Date of modification: February 2026
+
+Modifications made by Firecracker Contributors:
+- Copied from the Firecrawl repository for self-contained deployment
+- Integrated into the Firecracker Docker Compose stack
+- No functional changes to the engine source code itself
+- All original AGPL-3.0 license terms apply to this directory
+
+The original Firecrawl source is available at:
+https://github.com/mendableai/firecrawl
+
+"Firecrawl" is a trademark of Mendable/Sideguide Technologies Inc.
+This project is NOT affiliated with, endorsed by, or sponsored by
+Firecrawl or Mendable/Sideguide Technologies Inc.

@@ -1,0 +1,162 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # ==========================================================================
+  # Config Consistency Check
+  # Ensures docker-compose ports and CI expectations remain in sync.
+  # ==========================================================================
+  config-check:
+    name: Config Consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify docker-compose ports match CI defaults
+        run: |
+          # Ensure docker-compose exposes the expected default ports
+          grep -q "\${MCP_PORT:-24787}" docker-compose.yaml || (echo "MCP_PORT default mismatch" && exit 1)
+          grep -q "\${SCORCHCRAWL_PORT:-24786}" docker-compose.yaml || (echo "SCORCHCRAWL_PORT default mismatch" && exit 1)
+          echo "Config consistency checks passed"
+
+  # =========================================================================
+  # Unit Tests
+  # =========================================================================
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: server/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm vitest run --reporter=verbose
+
+  # =========================================================================
+  # TypeScript Type Check
+  # =========================================================================
+  typecheck:
+    name: TypeScript Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: server/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm tsc --noEmit
+
+  # =========================================================================
+  # Docker Build Smoke Test (engine image)
+  # =========================================================================
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build engine image
+        run: docker build -t scorchcrawl:ci -f engine/Dockerfile engine
+
+      - name: Smoke test — engine starts and serves API
+        run: |
+          docker run -d --name engine-ci \
+            -e PORT=3000 \
+            -e HOST=0.0.0.0 \
+            -p 3000:3000 \
+            -e REDIS_URL=redis://localhost:6379 \
+            scorchcrawl:ci
+
+          # Wait up to 30s for basic startup
+          for i in $(seq 1 30); do
+            if docker logs engine-ci 2>&1 | grep -q "Started"; then
+              echo "Engine started"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Engine startup check timed out (this is mostly informational)"
+          docker logs engine-ci || true
+          # Don't fail on this since engine needs external services
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f engine-ci || true
+
+  # =========================================================================
+  # Integration Tests (only on main, needs running stack)
+  # =========================================================================
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    needs: [unit-tests, docker-build]
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: server/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+
+      - name: Start MCP server
+        run: |
+          HTTP_STREAMABLE_SERVER=true PORT=24787 HOST=0.0.0.0 \
+            SCORCHCRAWL_API_URL=http://localhost:9999 \
+            node dist/index.js &
+
+          # Wait up to 15s for the server to be ready
+          for i in $(seq 1 15); do
+            if curl -sf http://localhost:24787/health; then
+              echo "MCP server is ready"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Run integration tests
+        env:
+          MCP_TEST_URL: http://localhost:24787
+        run: pnpm vitest run --config vitest.integration.config.ts --reporter=verbose

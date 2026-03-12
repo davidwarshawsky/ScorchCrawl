@@ -8,6 +8,9 @@ import { getInnerJson } from "@mendable/firecrawl-rs";
 export async function scrapeURLWithPlaywright(
   meta: Meta,
 ): Promise<EngineScrapeResult> {
+  const wantScreenshot = meta.featureFlags.has("screenshot") || meta.featureFlags.has("screenshot@fullScreen");
+  const fullPage = meta.featureFlags.has("screenshot@fullScreen");
+
   const response = await robustFetch({
     url: config.PLAYWRIGHT_MICROSERVICE_URL!,
     headers: {
@@ -19,6 +22,7 @@ export async function scrapeURLWithPlaywright(
       timeout: meta.abort.scrapeTimeout(),
       headers: meta.options.headers,
       skip_tls_verification: meta.options.skipTlsVerification,
+      ...(wantScreenshot && { screenshot: true, screenshot_full_page: fullPage }),
     },
     method: "POST",
     logger: meta.logger.child("scrapeURLWithPlaywright/robustFetch"),
@@ -27,6 +31,7 @@ export async function scrapeURLWithPlaywright(
       pageStatusCode: z.number(),
       pageError: z.string().optional(),
       contentType: z.string().optional(),
+      screenshot: z.string().optional(),
     }),
     mock: meta.mock,
     abort: meta.abort.asSignal(),
@@ -42,6 +47,7 @@ export async function scrapeURLWithPlaywright(
     statusCode: response.pageStatusCode,
     error: response.pageError,
     contentType: response.contentType,
+    screenshot: response.screenshot,
 
     proxyUsed: "basic",
   };

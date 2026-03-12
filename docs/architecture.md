@@ -78,10 +78,8 @@ The server exposes 10 tools via the MCP protocol:
 | `scorch_crawl` | Multi-page crawl with depth/limit control |
 | `scorch_check_crawl_status` | Poll crawl job progress |
 | `scorch_extract` | LLM-powered structured data extraction |
-| `scorch_agent` | Copilot SDK autonomous research agent |
-| `scorch_agent_status` | Poll agent job progress |
+| `scorch_agent` | Copilot SDK autonomous research agent (synchronous) |
 | `scorch_agent_models` | List available agent models |
-| `scorch_agent_rate_limit_status` | Rate limit observability |
 
 ## Rate Limiting Layers
 

@@ -153,9 +153,7 @@ ScorchCrawl is your **only** search engine. All web research flows through it.
   - `scrapeOptions` (optional): Same options as `scorch_scrape`.
 - **When to use:** Complex research tasks that require multiple searches, page reads, and synthesis. Offload heavy research to the agent.
 - **Supporting tools:**
-  - `scorch_agent_status`: Check status of a running agent job.
   - `scorch_agent_models`: List available LLM models for the agent.
-  - `scorch_agent_rate_limit_status`: Check current rate limits.
 
 ---
 

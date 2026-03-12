@@ -160,8 +160,7 @@ The MCP server exposes these tools, each mapped to a scraping API endpoint:
 
 | Tool | Backend | Description |
 |------|---------|-------------|
-| `scorch_agent` | Copilot SDK | Start an autonomous research agent job |
-| `scorch_agent_status` | In-memory | Check agent job progress |
+| `scorch_agent` | Copilot SDK | Run an autonomous research agent (synchronous, returns results directly) |
 | `scorch_agent_models` | Config | List available LLM models for agent |
 
 ### How Tools Are Registered
@@ -254,15 +253,9 @@ scorch_agent starts
   └── Returns: "Enterprise plan: $499/mo"
 ```
 
-### Agent job lifecycle:
+### Agent behavior:
 
-| State | Description |
-|-------|-------------|
-| `processing` | Agent is actively researching |
-| `completed` | Agent finished, results available |
-| `failed` | Agent encountered an error |
-
-Poll `scorch_agent_status` with the job ID to check progress. Jobs are cleaned up after 5 minutes (configurable via `staleJobTimeoutMs`).
+The `scorch_agent` tool is synchronous — it blocks until the agent completes its research and returns results directly. No polling is needed.
 
 ---
 
@@ -398,7 +391,7 @@ Most AI interactions follow this pattern:
 
 1. AI calls `scorch_agent` with a research prompt
 2. Agent autonomously scrapes, searches, and iterates
-3. AI polls `scorch_agent_status` until complete
+3. Agent returns results directly when complete
 4. AI presents the results
 
 ---

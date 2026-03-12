@@ -48,4 +48,14 @@ export const urlSpecificParams: Record<string, UrlSpecificParams> = {
     scrapeOptions: {},
     internalOptions: { forceEngine: "fire-engine;tlsclient" },
   },
+  "sciencedirect.com": {
+    scrapeOptions: { waitFor: 5000 },
+    internalOptions: {
+      forceEngine: [
+        "fire-engine;playwright;stealth",
+        "fire-engine;chrome-cdp;stealth",
+        "playwright",
+      ],
+    },
+  },
 };

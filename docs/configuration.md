@@ -24,7 +24,7 @@ The MCP server (`server/src/index.ts`) loads `.env` via `dotenv` on startup. Doc
 | **Default** | — |
 | **Example** | `ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx` |
 
-A GitHub Personal Access Token with the `copilot` scope. Required for the Copilot SDK agent engine (`scorch_agent` tool). Without it, the 7 non-agent tools still work, but `scorch_agent`, `scorch_agent_status`, and `scorch_agent_models` will fail.
+A GitHub Personal Access Token with the `copilot` scope. Required for the Copilot SDK agent engine (`scorch_agent` tool). Without it, the 7 non-agent tools still work, but `scorch_agent` and `scorch_agent_models` will fail.
 
 **How to get one:**
 1. Go to https://github.com/settings/tokens

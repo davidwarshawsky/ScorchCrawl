@@ -82,7 +82,86 @@ interface UrlModel {
   skip_tls_verification?: boolean;
   screenshot?: boolean;
   screenshot_full_page?: boolean;
+  dismiss_cookie_consent?: boolean;
 }
+
+// Common cookie consent selectors covering major CMPs (OneTrust, CookieBot, Didomi, etc.)
+const COOKIE_CONSENT_SELECTORS = [
+  // OneTrust
+  '#onetrust-accept-btn-handler',
+  // CookieBot
+  '#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll',
+  '#CybotCookiebotDialogBodyButtonAccept',
+  // Didomi
+  '#didomi-notice-agree-button',
+  // Quantcast
+  '.qc-cmp2-summary-buttons button[mode="primary"]',
+  // TrustArc / TrustE
+  '.trustarc-agree-btn',
+  '#truste-consent-button',
+  // Complianz
+  '.cmplz-accept',
+  // CookieYes
+  '.cky-btn-accept',
+  // GDPR Cookie Compliance
+  '[data-gdpr="accept"]',
+  // Osano
+  '.osano-cm-accept-all',
+  // Termly
+  '[data-tid="banner-accept"]',
+  // Generic patterns
+  '[data-testid="cookie-policy-dialog-accept-button"]',
+  '[aria-label="Accept cookies"]',
+  '[aria-label="Accept all cookies"]',
+  'button[data-action="accept"]',
+  '.cookie-consent .accept',
+  '.cookie-banner .accept',
+  '.cc-accept',
+  '.cc-btn.cc-allow',
+  '#accept-cookies',
+  '#cookie-accept',
+  '.js-cookie-accept',
+];
+
+/**
+ * Dismiss cookie consent banners by clicking common accept buttons.
+ * Runs best-effort — failures are silently ignored.
+ */
+const dismissCookieConsent = async (page: Page): Promise<boolean> => {
+  try {
+    // Wait briefly for cookie banners to appear (they often load with a delay)
+    await page.waitForTimeout(1000);
+
+    // Try each known CMP selector
+    for (const selector of COOKIE_CONSENT_SELECTORS) {
+      const btn = await page.$(selector);
+      if (btn && await btn.isVisible()) {
+        await btn.click();
+        console.log(`🍪 Dismissed cookie consent via: ${selector}`);
+        // Wait for the banner to disappear
+        await page.waitForTimeout(500);
+        return true;
+      }
+    }
+
+    // Fallback: try finding buttons by text content
+    const fallbackTexts = ['Accept all', 'Accept cookies', 'I agree', 'Allow all', 'Got it', 'OK'];
+    for (const text of fallbackTexts) {
+      const btn = await page.$(`button:has-text("${text}")`);
+      if (btn && await btn.isVisible()) {
+        await btn.click();
+        console.log(`🍪 Dismissed cookie consent via button text: "${text}"`);
+        await page.waitForTimeout(500);
+        return true;
+      }
+    }
+
+    return false;
+  } catch {
+    // Best-effort — don't let cookie consent dismissal break scraping
+    return false;
+  }
+};
 
 let browser: Browser;
 
@@ -222,6 +301,35 @@ const STEALTH_INIT_SCRIPT = `
           }
         });
       }
+    });
+  } catch(e) {}
+
+  // 14. WebRTC leak prevention — prevent real IP leaking via ICE candidates
+  try {
+    if (window.RTCPeerConnection) {
+      const OrigRTC = window.RTCPeerConnection;
+      window.RTCPeerConnection = class extends OrigRTC {
+        constructor(config) {
+          if (config && config.iceServers) config.iceServers = [];
+          super(config);
+        }
+      };
+      window.RTCPeerConnection.prototype = OrigRTC.prototype;
+    }
+  } catch(e) {}
+
+  // 15. navigator.deviceMemory — report reasonable value
+  Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });
+
+  // 16. navigator.connection — mock NetworkInformation
+  try {
+    Object.defineProperty(navigator, 'connection', {
+      get: () => ({
+        effectiveType: '4g',
+        rtt: 50,
+        downlink: 10,
+        saveData: false,
+      })
     });
   } catch(e) {}
 `;
@@ -376,7 +484,7 @@ app.get('/health', async (req: Request, res: Response) => {
 });
 
 app.post('/scrape', async (req: Request, res: Response) => {
-  const { url, wait_after_load = 0, timeout = 15000, headers, check_selector, skip_tls_verification = false, screenshot = false, screenshot_full_page = false }: UrlModel = req.body;
+  const { url, wait_after_load = 0, timeout = 15000, headers, check_selector, skip_tls_verification = false, screenshot = false, screenshot_full_page = false, dismiss_cookie_consent: shouldDismissCookies = true }: UrlModel = req.body;
   
   console.log(`================= Scrape Request =================`);
   console.log(`URL: ${url}`);
@@ -386,6 +494,7 @@ app.post('/scrape', async (req: Request, res: Response) => {
   console.log(`Check Selector: ${check_selector ? check_selector : 'None'}`);
   console.log(`Skip TLS Verification: ${skip_tls_verification}`);
   console.log(`Screenshot: ${screenshot} (fullPage: ${screenshot_full_page})`);
+  console.log(`Dismiss Cookie Consent: ${shouldDismissCookies}`);
   console.log(`==================================================`);
 
   if (!url) {
@@ -419,6 +528,14 @@ app.post('/scrape', async (req: Request, res: Response) => {
 
     const result = await scrapePage(page, url, 'load', wait_after_load, timeout, check_selector);
     const pageError = result.status !== 200 ? getError(result.status) : undefined;
+
+    // Dismiss cookie consent banners before capturing content/screenshots
+    if (shouldDismissCookies && page && !pageError) {
+      await dismissCookieConsent(page);
+      // Re-capture content after dismissing cookie banner (the DOM may have changed)
+      const updatedContent = await page.content();
+      result.content = updatedContent;
+    }
 
     // Capture screenshot if requested
     let screenshotData: string | undefined;

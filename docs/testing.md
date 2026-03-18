@@ -5,6 +5,17 @@
 > `docker pull ananymoususer/scorchcrawl:latest` and `docker compose up`
 
 
+If you cloned the parent workspace that contains both `ScorchCrawl` and `scorchcrawl-mcp`, `./ScorchCrawl/scripts/dev-helper.sh` at the repo root helps you keep `.env` files in sync, print the recommended WSL-friendly environment (local proxy + certificate path), and run the engine tests plus the MCP client/server test suites once dependencies are installed:
+
+```
+./ScorchCrawl/scripts/dev-helper.sh env
+./ScorchCrawl/scripts/dev-helper.sh test-engine
+./ScorchCrawl/scripts/dev-helper.sh test-mcp
+./ScorchCrawl/scripts/dev-helper.sh test-all
+```
+
+The helper also prints `free -h` so you can confirm there is enough RAM before spinning up the Docker stack.
+
 ## Overview
 
 ScorchCrawl uses [Vitest](https://vitest.dev/) for testing with three tiers:

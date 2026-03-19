@@ -272,17 +272,6 @@ const actionSchema = z.union([
     all: z.boolean().prefault(false),
   }),
   z.object({
-    type: z.literal("screenshot"),
-    fullPage: z.boolean().prefault(false),
-    quality: z.number().min(1).max(100).optional(),
-    viewport: z
-      .object({
-        width: z.int().positive().finite().max(7680), // 8K resolution width
-        height: z.int().positive().finite().max(4320), // 8K resolution height
-      })
-      .optional(),
-  }),
-  z.object({
     type: z.literal("write"),
     text: z.string(),
   }),
@@ -368,20 +357,6 @@ type ChangeTrackingFormatWithOptions = z.output<
   typeof changeTrackingFormatWithOptions
 >;
 
-const screenshotFormatWithOptions = z.object({
-  type: z.literal("screenshot"),
-  fullPage: z.boolean().prefault(false),
-  quality: z.number().min(1).max(100).optional(),
-  viewport: z
-    .object({
-      width: z.int().positive().finite().max(7680), // 8K resolution width
-      height: z.int().positive().finite().max(4320), // 8K resolution height
-    })
-    .optional(),
-});
-
-type ScreenshotFormatWithOptions = z.output<typeof screenshotFormatWithOptions>;
-
 const attributesFormatWithOptions = z.strictObject({
   type: z.literal("attributes"),
   selectors: z
@@ -409,7 +384,6 @@ export type FormatObject =
   | { type: "summary" }
   | JsonFormatWithOptions
   | ChangeTrackingFormatWithOptions
-  | ScreenshotFormatWithOptions
   | AttributesFormatWithOptions
   | { type: "branding" };
 
@@ -500,7 +474,6 @@ const baseScrapeOptions = z.strictObject({
           z.strictObject({ type: z.literal("summary") }),
           jsonFormatWithOptions,
           changeTrackingFormatWithOptions,
-          screenshotFormatWithOptions,
           attributesFormatWithOptions,
           z.strictObject({ type: z.literal("branding") }),
         ])
@@ -508,9 +481,6 @@ const baseScrapeOptions = z.strictObject({
         .optional()
         .prefault([{ type: "markdown" }]),
     )
-    .refine(x => {
-      return x.filter(f => f.type === "screenshot").length <= 1;
-    }, "You may only specify one screenshot format")
     .refine(x => {
       const hasChangeTracking = x.find(f => f.type === "changeTracking");
       const hasMarkdown = x.find(f => f.type === "markdown");
@@ -970,7 +940,6 @@ export type Document = {
   rawHtml?: string;
   links?: string[];
   images?: string[];
-  screenshot?: string;
   extract?: any;
   json?: any;
   summary?: string;
@@ -982,7 +951,6 @@ export type Document = {
     values: string[];
   }[];
   actions?: {
-    screenshots?: string[];
     scrapes?: ScrapeActionContent[];
     javascriptReturns?: {
       type: string;
@@ -1363,10 +1331,6 @@ export function fromV0ScrapeOptions(
         (pageOptions.includeMarkdown ?? true) ? ("markdown" as const) : null,
         (pageOptions.includeHtml ?? false) ? ("html" as const) : null,
         (pageOptions.includeRawHtml ?? false) ? ("rawHtml" as const) : null,
-        (pageOptions.screenshot ?? false) ? ("screenshot" as const) : null,
-        (pageOptions.fullPageScreenshot ?? false)
-          ? { type: "screenshot" as const, fullPage: true }
-          : null,
         extractorOptions !== undefined &&
         extractorOptions.mode.includes("llm-extraction")
           ? {
@@ -1496,8 +1460,6 @@ export function fromV1ScrapeOptions(
               prompt: opts?.prompt,
             };
             return fmt;
-          } else if (x === "screenshot@fullPage") {
-            return { type: "screenshot" as const, fullPage: true };
           } else if (x === "branding") {
             return { type: "branding" as const };
           } else {
@@ -1643,15 +1605,11 @@ export const searchRequestSchema = z
                 z.strictObject({ type: z.literal("images") }),
                 z.strictObject({ type: z.literal("summary") }),
                 jsonFormatWithOptions,
-                screenshotFormatWithOptions,
               ])
               .array()
               .optional()
               .prefault([]),
-          )
-          .refine(x => {
-            return x.filter(f => f.type === "screenshot").length <= 1;
-          }, "You may only specify one screenshot format"),
+          ),
       })
       .optional(),
     __agentInterop: z

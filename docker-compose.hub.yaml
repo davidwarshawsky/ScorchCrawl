@@ -17,11 +17,11 @@ x-common-env: &common-env
   POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
   POSTGRES_PORT: ${POSTGRES_PORT:-5432}
   PLAYWRIGHT_MICROSERVICE_URL: ${PLAYWRIGHT_MICROSERVICE_URL:-http://playwright:3000/scrape}
-  NUM_WORKERS_PER_QUEUE: ${NUM_WORKERS_PER_QUEUE:-16}
-  CRAWL_CONCURRENT_REQUESTS: ${CRAWL_CONCURRENT_REQUESTS:-20}
-  MAX_CONCURRENT_JOBS: ${MAX_CONCURRENT_JOBS:-10}
-  BROWSER_POOL_SIZE: ${BROWSER_POOL_SIZE:-10}
-  SCRAPE_MAX_ATTEMPTS: ${SCRAPE_MAX_ATTEMPTS:-6}
+  NUM_WORKERS_PER_QUEUE: ${NUM_WORKERS_PER_QUEUE:-5}
+  CRAWL_CONCURRENT_REQUESTS: ${CRAWL_CONCURRENT_REQUESTS:-3}
+  MAX_CONCURRENT_JOBS: ${MAX_CONCURRENT_JOBS:-3}
+  BROWSER_POOL_SIZE: ${BROWSER_POOL_SIZE:-3}
+  SCRAPE_MAX_ATTEMPTS: ${SCRAPE_MAX_ATTEMPTS:-3}
   USE_DB_AUTHENTICATION: ${USE_DB_AUTHENTICATION:-false}
   PROXY_SERVER: ${PROXY_SERVER:-}
   PROXY_USERNAME: ${PROXY_USERNAME:-}
@@ -32,7 +32,7 @@ x-common-env: &common-env
 
 services:
   scorchcrawl-api:
-    image: ananymoususer/scorchcrawl-api:latest
+    image: ananymoususer/scorchcrawl:latest
     container_name: scorchcrawl-api
     environment:
       <<: *common-env
@@ -51,8 +51,9 @@ services:
     networks: [backend]
     extra_hosts: ["host.docker.internal:host-gateway"]
     restart: unless-stopped
-    cpus: 4.0
-    mem_limit: 8G
+    cpus: 2.0
+    mem_limit: 1536M
+    memswap_limit: 1536M
 
   searxng:
     image: searxng/searxng:latest
@@ -68,6 +69,8 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    mem_limit: 128M
+    memswap_limit: 128M
 
   playwright:
     image: ananymoususer/scorchcrawl-playwright:latest
@@ -77,28 +80,33 @@ services:
       PROXY_USERNAME: ${PROXY_USERNAME:-}
       PROXY_PASSWORD: ${PROXY_PASSWORD:-}
       BLOCK_MEDIA: ${BLOCK_MEDIA:-}
-      MAX_CONCURRENT_PAGES: ${CRAWL_CONCURRENT_REQUESTS:-20}
+      MAX_CONCURRENT_PAGES: ${CRAWL_CONCURRENT_REQUESTS:-3}
     networks: [backend]
     extra_hosts: ["host.docker.internal:host-gateway"]
     restart: unless-stopped
-    cpus: 2.0
-    mem_limit: 4G
+    cpus: 1.0
+    mem_limit: 768M
+    memswap_limit: 768M
 
   browserless:
     image: browserless/chrome:latest
     environment:
       DEFAULT_STEALTH: "true"
-      MAX_CONCURRENT_SESSIONS: ${BROWSER_POOL_SIZE:-10}
+      MAX_CONCURRENT_SESSIONS: ${BROWSER_POOL_SIZE:-3}
       CONNECTION_TIMEOUT: "60000"
       TOKEN: ${BROWSERLESS_TOKEN:-scorchcrawl-stealth-token}
     networks: [backend]
     restart: unless-stopped
+    mem_limit: 768M
+    memswap_limit: 768M
 
   redis:
     image: redis:alpine
     networks: [backend]
     command: redis-server --bind 0.0.0.0
     restart: unless-stopped
+    mem_limit: 128M
+    memswap_limit: 128M
 
   rabbitmq:
     image: rabbitmq:3-management
@@ -111,6 +119,8 @@ services:
       retries: 3
       start_period: 5s
     restart: unless-stopped
+    mem_limit: 256M
+    memswap_limit: 256M
 
   postgres:
     image: ananymoususer/scorchcrawl-postgres:latest
@@ -120,6 +130,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
     networks: [backend]
     restart: unless-stopped
+    mem_limit: 384M
+    memswap_limit: 384M
 
 networks:
   backend:

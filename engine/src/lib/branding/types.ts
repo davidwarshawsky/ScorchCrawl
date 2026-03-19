@@ -76,7 +76,6 @@ export interface BrandingLLMInput {
     priority: number;
     area?: number;
   }>;
-  screenshot?: string;
   url: string;
   /** Optional header/nav HTML chunk for LLM when no logo candidates (fallback context). */
   headerHtmlChunk?: string;

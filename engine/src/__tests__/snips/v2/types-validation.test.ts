@@ -121,42 +121,6 @@ describe("V2 Types Validation", () => {
       );
     });
 
-    it("should reject multiple screenshot formats", () => {
-      const input: ScrapeRequestInput = {
-        url: "https://example.com",
-        formats: [
-          { type: "screenshot", fullPage: false },
-          { type: "screenshot", fullPage: true },
-        ],
-      };
-
-      expect(() => scrapeRequestSchema.parse(input)).toThrow(
-        "You may only specify one screenshot format",
-      );
-    });
-
-    it("should accept screenshot format with options", () => {
-      const input: ScrapeRequestInput = {
-        url: "https://example.com",
-        formats: [
-          {
-            type: "screenshot",
-            fullPage: true,
-            quality: 90,
-            viewport: {
-              width: 1920,
-              height: 1080,
-            },
-          },
-        ],
-      };
-
-      const result = scrapeRequestSchema.parse(input);
-      expect(result.formats[0].type).toBe("screenshot");
-      expect((result.formats[0] as any).fullPage).toBe(true);
-      expect((result.formats[0] as any).quality).toBe(90);
-    });
-
     it("should accept attributes format with selectors", () => {
       const input: ScrapeRequestInput = {
         url: "https://example.com",
@@ -402,42 +366,6 @@ describe("V2 Types Validation", () => {
       );
     });
 
-    it("should handle screenshot action with viewport", () => {
-      const input: ScrapeRequestInput = {
-        url: "https://example.com",
-        actions: [
-          {
-            type: "screenshot",
-            fullPage: false,
-            quality: 90,
-            viewport: {
-              width: 1920,
-              height: 1080,
-            },
-          },
-        ],
-      };
-
-      const result = scrapeRequestSchema.parse(input);
-      expect(result.actions?.[0].type).toBe("screenshot");
-    });
-
-    it("should reject screenshot action with invalid viewport dimensions", () => {
-      const input: ScrapeRequestInput = {
-        url: "https://example.com",
-        actions: [
-          {
-            type: "screenshot",
-            viewport: {
-              width: 10000, // Exceeds max
-              height: 1080,
-            },
-          },
-        ],
-      };
-
-      expect(() => scrapeRequestSchema.parse(input)).toThrow();
-    });
   });
 
   describe("extractRequestSchema", () => {

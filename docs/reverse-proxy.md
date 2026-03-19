@@ -23,7 +23,7 @@ openssl rand -hex 32
 > # or substitute your own namespace/tag
 > ```
 > 
-> The compose file above will use whatever image exists locally, so
+> The `docker-compose.hub.yaml` file above will use whatever image exists locally, so
 > pulling first lets you run the stack without compiling.
 
 ## 2. Create the API Key Map

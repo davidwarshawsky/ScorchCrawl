@@ -83,51 +83,6 @@ export async function getIndexFromGCS(
       const [blobContent] = await blob.download();
       const parsed = JSON.parse(blobContent.toString());
 
-      try {
-        if (typeof parsed.screenshot === "string") {
-          const screenshotUrl = new URL(parsed.screenshot);
-          let expiresAt =
-            parseInt(screenshotUrl.searchParams.get("Expires") ?? "0", 10) *
-            1000;
-          if (expiresAt === 0) {
-            expiresAt =
-              new Date(
-                screenshotUrl.searchParams.get("X-Goog-Date") ??
-                  "1970-01-01T00:00:00Z",
-              ).getTime() +
-              parseInt(
-                screenshotUrl.searchParams.get("X-Goog-Expires") ?? "0",
-                10,
-              ) *
-                1000;
-          }
-          if (
-            screenshotUrl.hostname === "storage.googleapis.com" &&
-            expiresAt < Date.now()
-          ) {
-            logger?.info("Re-signing screenshot URL");
-            const [url] = await storage
-              .bucket(config.GCS_MEDIA_BUCKET_NAME!)
-              .file(decodeURIComponent(screenshotUrl.pathname.split("/")[2]))
-              .getSignedUrl({
-                action: "read",
-                expires: Date.now() + 1000 * 60 * 60 * 24 * 7, // 7 days
-              });
-            parsed.screenshot = url;
-
-            // Update the blob
-            await blob.save(JSON.stringify(parsed), {
-              contentType: "application/json",
-            });
-          }
-        }
-      } catch (error) {
-        logger?.warn("Error re-signing screenshot URL", {
-          error,
-          url,
-        });
-      }
-
       setSpanAttributes(span, { "index.document_found": true });
       return parsed;
     });
@@ -155,7 +110,6 @@ export async function saveIndexToGCS(
     html: string;
     statusCode: number;
     error?: string;
-    screenshot?: string;
     pdfMetadata?: PdfMetadata;
     contentType?: string;
     postprocessorsUsed?: string[];

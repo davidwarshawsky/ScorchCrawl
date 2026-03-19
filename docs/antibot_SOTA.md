@@ -81,7 +81,6 @@ Cloudflare launched a **Browser Rendering** service that runs headless Chromium 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/content` | POST | Returns full HTML after JS rendering |
-| `/screenshot` | POST | Returns a screenshot of the page |
 | `/pdf` | POST | Returns a PDF of the page |
 | `/scrape` | POST | AI-powered structured data extraction with schema |
 | `/json` | POST | Extract structured JSON with a prompt |

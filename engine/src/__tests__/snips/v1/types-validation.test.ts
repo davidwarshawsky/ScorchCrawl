@@ -73,17 +73,6 @@ describe("V1 Types Validation", () => {
       expect(() => scrapeRequestSchema.parse(input)).toThrow();
     });
 
-    it("should reject invalid format combination (screenshot and screenshot@fullPage)", () => {
-      const input: ScrapeRequestInput = {
-        url: "https://example.com",
-        formats: ["screenshot", "screenshot@fullPage"],
-      };
-
-      expect(() => scrapeRequestSchema.parse(input)).toThrow(
-        "You may only specify either screenshot or screenshot@fullPage",
-      );
-    });
-
     it("should reject changeTracking without markdown", () => {
       const input: ScrapeRequestInput = {
         url: "https://example.com",

@@ -73,41 +73,4 @@ describe("V2 Scrape skipTlsVerification Default", () => {
     scrapeTimeout,
   );
 
-  testIf(TEST_PRODUCTION)(
-    "should support object screenshot format",
-    async () => {
-      const data = await scrape(
-        {
-          url: TEST_SUITE_WEBSITE,
-          formats: [{ type: "screenshot", fullPage: false }],
-          maxAge: 0,
-        },
-        identity,
-      );
-
-      expect(data).toBeDefined();
-      expect(data.screenshot).toBeDefined();
-      expect(typeof data.screenshot).toBe("string");
-    },
-    scrapeTimeout,
-  );
-
-  testIf(TEST_PRODUCTION)(
-    "should support object screenshot format with fullPage",
-    async () => {
-      const data = await scrape(
-        {
-          url: TEST_SUITE_WEBSITE,
-          formats: [{ type: "screenshot", fullPage: true }],
-          maxAge: 0,
-        },
-        identity,
-      );
-
-      expect(data).toBeDefined();
-      expect(data.screenshot).toBeDefined();
-      expect(typeof data.screenshot).toBe("string");
-    },
-    scrapeTimeout,
-  );
 });

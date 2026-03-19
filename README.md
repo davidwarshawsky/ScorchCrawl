@@ -33,7 +33,7 @@ docker pull ananymoususer/scorchcrawl:latest
 # (replace `ananymoususer` with your namespace if you republish)
 
 # then start services
-docker compose up -d
+docker compose -f docker-compose.hub.yaml up -d
 ```
 
 The core scraping API is normally available at `http://localhost:24786`.  If you pulled the image there is no build step required — just ensure your `.env` is configured.
@@ -49,6 +49,7 @@ Companion: `scorchcrawl-mcp`
 
 Docs & config
 - See `docs/` inside this repo for configuration, testing, and architecture notes.
+- Start with `docs/setup-install-guide.md` for install and deployment steps.
 
 License
 - AGPL-3.0 — see `LICENSE` for details.

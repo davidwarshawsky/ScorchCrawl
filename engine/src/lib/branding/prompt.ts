@@ -302,13 +302,8 @@ export function buildBrandingPrompt(input: BrandingLLMInput): string {
       prompt += `**Heuristic suggestion**: Our heuristic selected **Candidate #${heuristicLogoPick.selectedIndexInFilteredList}** (confidence: ${(heuristicLogoPick.confidence * 100).toFixed(0)}%). Reason: ${heuristicLogoPick.reasoning}\n\n`;
       prompt += `**Your task**: Confirm this choice OR pick a different index. If you pick a different logo, you MUST explain why the heuristic was wrong and why your choice is better.\n\n`;
     }
-    if (input.screenshot) {
-      prompt += `**IMPORTANT**: Look at the screenshot provided. The brand logo is almost always in the TOP/HEADER area of the page.\n`;
-      prompt += `Find the logo in the header area of the screenshot, then match it to one of the candidates below.\n\n`;
-    } else {
-      prompt += `**IMPORTANT**: The brand logo is almost always in the TOP/HEADER area of the page.\n`;
-      prompt += `Find the logo in the header area (usually the top of the page), then match it to one of the candidates below.\n\n`;
-    }
+    prompt += `**IMPORTANT**: The brand logo is almost always in the TOP/HEADER area of the page.\n`;
+    prompt += `Find the logo in the header area (usually the top of the page), then match it to one of the candidates below.\n\n`;
     if (favicon) {
       const faviconPreview =
         favicon.length > 100 ? favicon.substring(0, 100) + "..." : favicon;
@@ -383,21 +378,13 @@ export function buildBrandingPrompt(input: BrandingLLMInput): string {
     prompt += `5. **Prefer the main visible logo:** When multiple candidates share the same href (e.g. homepage), pick the one with LARGER width×height and isVisible:true — that is the primary logo; the smaller/hidden one is often a collapsed-nav variant.\n`;
     prompt += `6. **Prefer favicon match or clear Logo:** If favicon was provided, prefer a candidate whose src matches or resembles it, or a clear "Logo.svg"/wordmark in header with href=home. Prefer alt matching brand (e.g. "X Home") over generic or empty alt.\n\n`;
     prompt += `**LOGO SELECTION - SIMPLE APPROACH:**\n`;
-    if (input.screenshot) {
-      prompt += `Look at the screenshot and select the MOST PROMINENT primary brand logo (the one users actually see in the header).\n\n`;
-    } else {
-      prompt += `Select the MOST PROMINENT primary brand logo (largest visible header logo that represents the brand).\n\n`;
-    }
+    prompt += `Select the MOST PROMINENT primary brand logo (largest visible header logo that represents the brand).\n\n`;
     prompt += `**Simple Rules:**\n`;
     prompt += `1. **Look at the TOP of the page** - The main logo is almost always in the header/navbar at the very top\n`;
     prompt += `2. **Primary logo** - Choose the largest, most visible logo that represents "${brandName || "the website's brand"}" (prefer medium/large size, isVisible:true)\n`;
     prompt += `3. **Prefer header logos** - Logos in the header/navbar area are the brand logo (highest priority)\n`;
     prompt += `4. **Ignore partner/client logos** - Skip smaller logos in "customers", "partners", or footer sections\n`;
-    if (input.screenshot) {
-      prompt += `5. **Use the screenshot** - Visually identify which logo is THE main brand logo users see first (not a tiny icon or hidden variant)\n\n`;
-    } else {
-      prompt += `5. **Use position + size + isVisible** - Prefer header, larger dimensions, and isVisible:true; reject tiny or invisible candidates\n\n`;
-    }
+    prompt += `5. **Use position + size + isVisible** - Prefer header, larger dimensions, and isVisible:true; reject tiny or invisible candidates\n\n`;
     prompt += `**What to avoid:**\n`;
     prompt += `- Tiny or small icons (menu, hamburger, close, toggle) — check alt text and size\n`;
     prompt += `- Candidates with isVisible:false when a visible header logo exists\n`;
@@ -410,11 +397,7 @@ export function buildBrandingPrompt(input: BrandingLLMInput): string {
   // Add background color candidates section
   if (backgroundCandidates && backgroundCandidates.length > 0) {
     prompt += `\n## Background Color Candidates (${backgroundCandidates.length}):\n`;
-    if (input.screenshot) {
-      prompt += `Multiple background colors were detected. Use the screenshot to identify which is the actual page background:\n\n`;
-    } else {
-      prompt += `Multiple background colors were detected. Identify which is the actual page background:\n\n`;
-    }
+    prompt += `Multiple background colors were detected. Identify which is the actual page background:\n\n`;
 
     backgroundCandidates.forEach((candidate, idx) => {
       const areaInfo = candidate.area
@@ -424,16 +407,10 @@ export function buildBrandingPrompt(input: BrandingLLMInput): string {
     });
 
     prompt += `\n**Selection Rules:** `;
-    if (input.screenshot) {
-      prompt += `Use the screenshot to visually identify the main page background. Consider:\n`;
-      prompt += `- Color scheme (dark mode should have dark background, light mode should have light background)\n`;
-      prompt += `- Most visible/largest area in the screenshot\n`;
-    } else {
-      prompt += `Identify the main page background based on priority and source. Consider:\n`;
-      prompt += `- Color scheme (dark mode should have dark background, light mode should have light background)\n`;
-      prompt += `- Highest priority sources (body/html > CSS vars > containers)\n`;
-      prompt += `- Largest area coverage\n`;
-    }
+    prompt += `Identify the main page background based on priority and source. Consider:\n`;
+    prompt += `- Color scheme (dark mode should have dark background, light mode should have light background)\n`;
+    prompt += `- Highest priority sources (body/html > CSS vars > containers)\n`;
+    prompt += `- Largest area coverage\n`;
     prompt += `- Higher priority sources (body/html > CSS vars > containers)\n`;
     prompt += `- Return the hex color in the colorRoles.backgroundColor field\n\n`;
   }
@@ -504,13 +481,8 @@ export function buildBrandingPrompt(input: BrandingLLMInput): string {
     prompt += `   - **CRITICAL**: NEVER pick a tiny/invisible/UI icon. Prefer the MAIN visible header logo (medium/large size, isVisible:true, alt like "${brandName || "Brand"} Home").\n`;
     prompt += `   - **IT'S OK TO RETURN -1**: If no candidate is a good brand logo, return -1 with low confidence\n`;
     prompt += `   - **DECISION PROCESS**:\n`;
-    if (input.screenshot) {
-      prompt += `     1. Look at the screenshot - find the MAIN logo in the HEADER (the one users see, not a tiny icon)\n`;
-      prompt += `     2. Match that visual to a candidate; prefer isVisible:true and larger size\n`;
-    } else {
-      prompt += `     1. Filter by isVisible:true and size (prefer medium/large over tiny/small)\n`;
-      prompt += `     2. Prefer candidates with alt matching brand (e.g. "${brandName || "Brand"} Home"), href=home, in header\n`;
-    }
+    prompt += `     1. Filter by isVisible:true and size (prefer medium/large over tiny/small)\n`;
+    prompt += `     2. Prefer candidates with alt matching brand (e.g. "${brandName || "Brand"} Home"), href=home, in header\n`;
     prompt += `     3. Reject any candidate with alt containing "menu", "hamburger", "toggle", "mobile menu", "close"\n`;
     prompt += `     4. If multiple candidates share the same href, pick the LARGER one (primary logo), not the smaller/hidden variant\n`;
     prompt += `     5. If you're unsure or only tiny/invisible candidates remain, return -1\n`;

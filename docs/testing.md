@@ -2,7 +2,7 @@
 
 > **Tip:** the CI builds a Docker image and verifies it, but for
 > local Docker integration tests you can use the pre-published image:
-> `docker pull ananymoususer/scorchcrawl:latest` and `docker compose up`
+> `docker pull ananymoususer/scorchcrawl:latest` and `docker compose -f docker-compose.hub.yaml up`
 
 
 If you cloned the parent workspace that contains both `ScorchCrawl` and `scorchcrawl-mcp`, `./ScorchCrawl/scripts/dev-helper.sh` at the repo root helps you keep `.env` files in sync, print the recommended WSL-friendly environment (local proxy + certificate path), and run the engine tests plus the MCP client/server test suites once dependencies are installed:

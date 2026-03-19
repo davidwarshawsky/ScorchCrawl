@@ -186,7 +186,6 @@ export async function brandingTransformer(
       pageUrl: rawBranding.pageUrl,
       backgroundCandidates:
         backgroundCandidates.length > 0 ? backgroundCandidates : undefined,
-      screenshot: document.screenshot,
       url: finalUrl || "",
       headerHtmlChunk: headerHtmlChunk || undefined,
       favicon: brandingProfile.images?.favicon ?? undefined,

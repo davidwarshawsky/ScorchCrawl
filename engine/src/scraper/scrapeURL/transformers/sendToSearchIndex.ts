@@ -137,7 +137,6 @@ export async function sendDocumentToSearchIndex(
           html: document.rawHtml ?? "",
           statusCode: document.metadata.statusCode,
           gcsPath: gcsPath,
-          screenshotUrl: document.screenshot ?? undefined,
           language: document.metadata.language ?? "en",
           country: meta.options.location?.country ?? undefined,
           isMobile: meta.options.mobile ?? false,

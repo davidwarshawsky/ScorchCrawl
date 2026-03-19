@@ -58,10 +58,6 @@ export type FireEngineScrapeRequestPlaywright = {
   engine: "playwright";
   blockAds?: boolean; // default: true
 
-  // mutually exclusive, default: false
-  screenshot?: boolean;
-  fullPageScreenshot?: boolean;
-
   wait?: number; // default: 0
 };
 
@@ -86,12 +82,6 @@ const successSchema = z.object({
 
   // timeTakenCookie: z.number().optional(),
   // timeTakenRequest: z.number().optional(),
-
-  // legacy: playwright only
-  screenshot: z.string().optional(),
-
-  // new: actions
-  screenshots: z.string().array().optional(),
   actionContent: z
     .object({
       url: z.string(),
@@ -101,13 +91,6 @@ const successSchema = z.object({
     .optional(),
   actionResults: z
     .union([
-      z.object({
-        idx: z.number(),
-        type: z.literal("screenshot"),
-        result: z.object({
-          path: z.string(),
-        }),
-      }),
       z.object({
         idx: z.number(),
         type: z.literal("scrape"),

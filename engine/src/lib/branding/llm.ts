@@ -25,12 +25,10 @@ export async function enhanceBrandingWithLLM(
   const logoCandidatesCount = input.logoCandidates?.length || 0;
   const promptLength = prompt.length;
 
-  // Use gpt-4o for complex/visual cases (better vision and reasoning):
-  // - Has screenshot (vision task – gpt-4o has strong visual capabilities)
+  // Use gpt-4o for more complex branding cases.
   // - Many buttons (>8) or logo candidates (>5)
   // - Long prompt (>8000 chars)
   const isComplexCase =
-    !!input.screenshot ||
     buttonsCount > 8 ||
     logoCandidatesCount > 5 ||
     promptLength > 8000;
@@ -50,25 +48,17 @@ export async function enhanceBrandingWithLLM(
       isSvg: candidate.isSvg,
       indicators: candidate.indicators,
     }));
-    const screenshotLength = input.screenshot ? input.screenshot.length : 0;
-
     logger.info("LLM model selection", {
       model: modelName,
       buttonsCount,
       logoCandidatesCount,
       promptLength,
-      hasScreenshot: !!input.screenshot,
       isComplexCase,
     });
 
     logger.info("LLM branding prompt (full)", { prompt });
     logger.info("LLM branding input files", {
       logoCandidates: logoCandidateFiles,
-      screenshot: {
-        provided: !!input.screenshot,
-        length: screenshotLength,
-        preview: input.screenshot ? input.screenshot.slice(0, 48) + "..." : "",
-      },
     });
 
     logger.debug("LLM branding prompt preview", {
@@ -106,12 +96,7 @@ export async function enhanceBrandingWithLLM(
         },
         {
           role: "user",
-          content: input.screenshot
-            ? [
-                { type: "text", text: prompt },
-                { type: "image", image: input.screenshot },
-              ]
-            : prompt,
+          content: prompt,
         },
       ],
       temperature: 0.1,
@@ -139,7 +124,6 @@ export async function enhanceBrandingWithLLM(
         buttonsCount,
         logoCandidatesCount,
         promptLength,
-        hasScreenshot: !!input.screenshot,
         usage: result.usage,
         finishReason: result.finishReason,
         reasoning: reasoningPreview,
@@ -197,7 +181,6 @@ export async function enhanceBrandingWithLLM(
           buttonsCount: input.buttons?.length || 0,
           logoCandidatesCount: input.logoCandidates?.length || 0,
           promptLength: prompt.length,
-          hasScreenshot: !!input.screenshot,
         });
         Sentry.captureException(error);
       });

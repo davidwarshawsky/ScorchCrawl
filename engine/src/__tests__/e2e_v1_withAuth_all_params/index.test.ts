@@ -138,8 +138,6 @@ describe("E2E Tests for v1 API Routes", () => {
   );
 
   // - TODO: tests for links
-  // - TODO: tests for screenshot
-  // - TODO: tests for screenshot@fullPage
 
   it.concurrent(
     "should handle 'headers' parameter correctly",
@@ -479,95 +477,6 @@ describe("E2E Tests for v1 API Routes", () => {
       expect(response.body.data.markdown).toContain(
         "Content loaded after 5 seconds!",
       );
-    },
-    30000,
-  );
-
-  // screenshot
-  it.concurrent(
-    "should handle 'action screenshot' parameter correctly",
-    async () => {
-      const scrapeRequest = {
-        url: E2E_TEST_SERVER_URL,
-        actions: [
-          {
-            type: "screenshot",
-          },
-        ],
-      } as ScrapeRequest;
-
-      const response: any = await request(FIRECRAWL_API_URL)
-        .post("/v1/scrape")
-        .set("Authorization", `Bearer ${config.TEST_API_KEY}`)
-        .set("Content-Type", "application/json")
-        .send(scrapeRequest);
-
-      expect(response.statusCode).toBe(200);
-      if (!("data" in response.body)) {
-        throw new Error("Expected response body to have 'data' property");
-      }
-      if (!response.body.data.actions?.screenshots) {
-        throw new Error("Expected response body to have screenshots array");
-      }
-      expect(response.body.data.actions.screenshots[0].length).toBeGreaterThan(
-        0,
-      );
-      expect(response.body.data.actions.screenshots[0]).toContain(
-        "https://service.firecrawl.dev/storage/v1/object/public/media/screenshot-",
-      );
-
-      // TODO compare screenshot with expected screenshot
-    },
-    30000,
-  );
-
-  it.concurrent(
-    "should handle 'action screenshot@fullPage' parameter correctly",
-    async () => {
-      const scrapeRequest = {
-        url: E2E_TEST_SERVER_URL,
-        actions: [
-          {
-            type: "screenshot",
-            fullPage: true,
-          },
-          {
-            type: "scrape",
-          },
-        ],
-      } as ScrapeRequest;
-
-      const response: any = await request(FIRECRAWL_API_URL)
-        .post("/v1/scrape")
-        .set("Authorization", `Bearer ${config.TEST_API_KEY}`)
-        .set("Content-Type", "application/json")
-        .send(scrapeRequest);
-
-      expect(response.statusCode).toBe(200);
-      if (!("data" in response.body)) {
-        throw new Error("Expected response body to have 'data' property");
-      }
-      // console.log(response.body.data.actions?.screenshots[0])
-      if (!response.body.data.actions?.screenshots) {
-        throw new Error("Expected response body to have screenshots array");
-      }
-      expect(response.body.data.actions.screenshots[0].length).toBeGreaterThan(
-        0,
-      );
-      expect(response.body.data.actions.screenshots[0]).toContain(
-        "https://service.firecrawl.dev/storage/v1/object/public/media/screenshot-",
-      );
-
-      if (!response.body.data.actions?.scrapes) {
-        throw new Error("Expected response body to have scrapes array");
-      }
-      expect(response.body.data.actions.scrapes[0].url).toBe(
-        "https://firecrawl-e2e-test.vercel.app/",
-      );
-      expect(response.body.data.actions.scrapes[0].html).toContain(
-        "This page is used for end-to-end (e2e) testing with Firecrawl.</p>",
-      );
-      // TODO compare screenshot with expected full page screenshot
     },
     30000,
   );

@@ -10,8 +10,6 @@ export type PageOptions = {
   fallback?: boolean;
   fetchPageContent?: boolean;
   waitFor?: number;
-  screenshot?: boolean;
-  fullPageScreenshot?: boolean;
   headers?: Record<string, string>;
   replaceAllPathsWithAbsolutePaths?: boolean;
   parsePDF?: boolean;
@@ -69,7 +67,6 @@ export class Document {
   provider?: string;
   warning?: string;
   actions?: {
-    screenshots?: string[];
     scrapes?: ScrapeActionContent[];
     javascriptReturns?: {
       type: string;
@@ -136,7 +133,6 @@ interface NewsSearchResult {
   html?: string;
   rawHtml?: string;
   links?: string[];
-  screenshot?: string;
   metadata?: Record<string, any>;
 }
 
@@ -151,7 +147,6 @@ export interface WebSearchResult {
   html?: string;
   rawHtml?: string;
   links?: string[];
-  screenshot?: string;
   metadata?: Record<string, any>;
 }
 

@@ -16,15 +16,8 @@ import {
 } from "../../../../services";
 import { EngineError, IndexMissError, NoCachedDataError } from "../../error";
 import { shouldParsePDF } from "../../../../controllers/v2/types";
-import { hasFormatOfType } from "../../../../lib/format-utils";
 
 export async function sendDocumentToIndex(meta: Meta, document: Document) {
-  // Skip caching if screenshot format has custom viewport or quality settings
-  const screenshotFormat = hasFormatOfType(meta.options.formats, "screenshot");
-  const hasCustomScreenshotSettings =
-    screenshotFormat?.viewport !== undefined ||
-    screenshotFormat?.quality !== undefined;
-
   const shouldCache =
     meta.options.storeInCache &&
     !meta.internalOptions.zeroDataRetention &&
@@ -46,7 +39,6 @@ export async function sendDocumentToIndex(meta: Meta, document: Document) {
         meta.winnerEngine !== "fire-engine;tlsclient;stealth" &&
         meta.winnerEngine !== "fetch")) &&
     !meta.featureFlags.has("actions") &&
-    !hasCustomScreenshotSettings &&
     (meta.options.headers === undefined ||
       Object.keys(meta.options.headers).length === 0);
 
@@ -84,7 +76,6 @@ export async function sendDocumentToIndex(meta: Meta, document: Document) {
           html: document.rawHtml!,
           statusCode: document.metadata.statusCode,
           error: document.metadata.error,
-          screenshot: document.screenshot,
           pdfMetadata:
             document.metadata.numPages !== undefined
               ? {
@@ -139,12 +130,6 @@ export async function sendDocumentToIndex(meta: Meta, document: Document) {
             document.metadata.sourceURL ??
             meta.rewrittenUrl ??
             meta.url,
-          has_screenshot:
-            document.screenshot !== undefined &&
-            meta.featureFlags.has("screenshot"),
-          has_screenshot_fullscreen:
-            document.screenshot !== undefined &&
-            meta.featureFlags.has("screenshot@fullScreen"),
           is_mobile: meta.options.mobile,
           block_ads: meta.options.blockAds,
           location_country: meta.options.location?.country ?? null,
@@ -265,10 +250,6 @@ export async function scrapeURLWithIndex(
       p_max_age_ms: maxAge,
       p_is_mobile: meta.options.mobile,
       p_block_ads: meta.options.blockAds,
-      p_feature_screenshot: meta.featureFlags.has("screenshot"),
-      p_feature_screenshot_fullscreen: meta.featureFlags.has(
-        "screenshot@fullScreen",
-      ),
       p_location_country: meta.options.location?.country ?? null,
       p_location_languages:
         (meta.options.location?.languages?.length ?? 0) > 0
@@ -374,7 +355,6 @@ export async function scrapeURLWithIndex(
     html: doc.html,
     statusCode: doc.statusCode,
     error: doc.error,
-    screenshot: doc.screenshot,
     pdfMetadata:
       doc.pdfMetadata ??
       (doc.numPages !== undefined

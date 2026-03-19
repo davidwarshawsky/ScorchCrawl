@@ -149,7 +149,7 @@ The MCP server exposes these tools, each mapped to a scraping API endpoint:
 
 | Tool | API Endpoint | Description |
 |------|-------------|-------------|
-| `scorch_scrape` | `POST /v1/scrape` | Scrape a single URL → markdown, HTML, JSON, or screenshot |
+| `scorch_scrape` | `POST /v1/scrape` | Scrape a single URL → markdown, HTML, or structured JSON |
 | `scorch_crawl` | `POST /v1/crawl` | Start a multi-page crawl job (async) |
 | `scorch_check_crawl_status` | `GET /v1/crawl/:id` | Check crawl progress and get results |
 | `scorch_map` | `POST /v1/map` | Discover all URLs on a site (sitemap discovery) |

@@ -59,22 +59,6 @@ describeIf(ALLOW_TEST_SUITE_WEBSITE)("Scrape format variations", () => {
       scrapeTimeout,
     );
 
-    concurrentIf(TEST_PRODUCTION)(
-      "accepts string format for screenshot",
-      async () => {
-        const response = await scrape(
-          {
-            url: base,
-            formats: ["screenshot"],
-          },
-          identity,
-        );
-
-        expect(response.screenshot).toBeDefined();
-        expect(typeof response.screenshot).toBe("string");
-      },
-      scrapeTimeout,
-    );
   });
 
   describe("Object format inputs", () => {
@@ -119,29 +103,6 @@ describeIf(ALLOW_TEST_SUITE_WEBSITE)("Scrape format variations", () => {
       scrapeTimeout,
     );
 
-    concurrentIf(TEST_PRODUCTION)(
-      "accepts object format for screenshot with options",
-      async () => {
-        const response = await scrape(
-          {
-            url: base,
-            formats: [
-              {
-                type: "screenshot",
-                fullPage: true,
-                quality: 80,
-                viewport: { width: 1920, height: 1080 },
-              },
-            ],
-          },
-          identity,
-        );
-
-        expect(response.screenshot).toBeDefined();
-        expect(typeof response.screenshot).toBe("string");
-      },
-      scrapeTimeout,
-    );
   });
 
   describe("Mixed format inputs", () => {
@@ -163,31 +124,6 @@ describeIf(ALLOW_TEST_SUITE_WEBSITE)("Scrape format variations", () => {
       scrapeTimeout,
     );
 
-    concurrentIf(TEST_PRODUCTION)(
-      "handles complex formats alongside simple ones",
-      async () => {
-        const response = await scrape(
-          {
-            url: base,
-            formats: [
-              "markdown",
-              {
-                type: "screenshot",
-                fullPage: false,
-                quality: 90,
-              },
-              { type: "links" },
-            ],
-          },
-          identity,
-        );
-
-        expect(response.markdown).toBeDefined();
-        expect(response.screenshot).toBeDefined();
-        expect(response.links).toBeDefined();
-      },
-      scrapeTimeout,
-    );
   });
 
   describe("Format with options that already exist", () => {

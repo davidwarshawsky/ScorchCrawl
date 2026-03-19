@@ -23,8 +23,6 @@ type Format =
   | "html"
   | "rawHtml"
   | "links"
-  | "screenshot"
-  | "screenshot@fullPage"
   | "extract"
   | "json"
   | "summary"
@@ -320,11 +318,6 @@ const actionSchema = z.union([
     all: z.boolean().prefault(false),
   }),
   z.object({
-    type: z.literal("screenshot"),
-    fullPage: z.boolean().prefault(false),
-    quality: z.number().min(1).max(100).optional(),
-  }),
-  z.object({
     type: z.literal("write"),
     text: z.string(),
   }),
@@ -422,8 +415,6 @@ const baseScrapeOptions = z.strictObject({
       "html",
       "rawHtml",
       "links",
-      "screenshot",
-      "screenshot@fullPage",
       "extract",
       "json",
       "summary",
@@ -433,10 +424,6 @@ const baseScrapeOptions = z.strictObject({
     .array()
     .optional()
     .prefault(["markdown"])
-    .refine(
-      x => !(x.includes("screenshot") && x.includes("screenshot@fullPage")),
-      "You may only specify either screenshot or screenshot@fullPage",
-    )
     .refine(
       x => !x.includes("changeTracking") || x.includes("markdown"),
       "The changeTracking format requires the markdown format to be specified as well",
@@ -978,14 +965,12 @@ export type Document = {
   rawHtml?: string;
   links?: string[];
   images?: string[];
-  screenshot?: string;
   extract?: any;
   json?: any;
   summary?: string;
   branding?: BrandingProfile;
   warning?: string;
   actions?: {
-    screenshots?: string[];
     scrapes?: ScrapeActionContent[];
     javascriptReturns?: {
       type: string;
@@ -1407,10 +1392,6 @@ export function fromLegacyScrapeOptions(
         (pageOptions.includeMarkdown ?? true) ? ("markdown" as const) : null,
         (pageOptions.includeHtml ?? false) ? ("html" as const) : null,
         (pageOptions.includeRawHtml ?? false) ? ("rawHtml" as const) : null,
-        (pageOptions.screenshot ?? false) ? ("screenshot" as const) : null,
-        (pageOptions.fullPageScreenshot ?? false)
-          ? ("screenshot@fullPage" as const)
-          : null,
         extractorOptions !== undefined &&
         extractorOptions.mode.includes("llm-extraction")
           ? ("extract" as const)
@@ -1479,7 +1460,6 @@ export function toLegacyDocument(
       statusCode: undefined,
       pageError: document.metadata.error,
       pageStatusCode: document.metadata.statusCode,
-      screenshot: document.screenshot,
     },
     actions: document.actions,
     warning: document.warning,
@@ -1509,8 +1489,6 @@ export const searchRequestSchema = z
               "html",
               "rawHtml",
               "links",
-              "screenshot",
-              "screenshot@fullPage",
               "extract",
               "json",
             ]),

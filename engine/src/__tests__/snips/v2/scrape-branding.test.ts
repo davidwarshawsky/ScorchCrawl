@@ -295,23 +295,6 @@ describe.skip("Branding extraction", () => {
       scrapeTimeout,
     );
 
-    concurrentIf(TEST_PRODUCTION || HAS_AI)(
-      "does not interfere with screenshot",
-      async () => {
-        const response = await scrape(
-          {
-            url: "https://firecrawl.dev",
-            formats: ["branding", "screenshot"],
-          },
-          identity,
-        );
-
-        expect(response.branding).toBeDefined();
-        expect(response.screenshot).toBeDefined();
-        expect(typeof response.screenshot).toBe("string");
-      },
-      scrapeTimeout,
-    );
   });
 
   describe("SVG logo handling", () => {

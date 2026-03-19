@@ -67,8 +67,6 @@ const engines: Engine[] = [
 const featureFlags = [
   "actions",
   "waitFor",
-  "screenshot",
-  "screenshot@fullScreen",
   "pdf",
   "document",
   "atsv",
@@ -90,8 +88,6 @@ const featureFlagOptions: {
 } = {
   actions: { priority: 20 },
   waitFor: { priority: 1 },
-  screenshot: { priority: 10 },
-  "screenshot@fullScreen": { priority: 10 },
   pdf: { priority: 100 },
   document: { priority: 100 },
   atsv: { priority: 90 }, // NOTE: should atsv force to tlsclient? adjust priority if not
@@ -111,10 +107,7 @@ export type EngineScrapeResult = {
   markdown?: string;
   statusCode: number;
   error?: string;
-
-  screenshot?: string;
   actions?: {
-    screenshots: string[];
     scrapes: ScrapeActionContent[];
     javascriptReturns: {
       type: string;
@@ -200,8 +193,6 @@ const engineOptions: {
     features: {
       actions: false,
       waitFor: true,
-      screenshot: true,
-      "screenshot@fullScreen": true,
       pdf: false,
       document: false,
       atsv: false,
@@ -219,8 +210,6 @@ const engineOptions: {
     features: {
       actions: true,
       waitFor: true, // through actions transform
-      screenshot: true, // through actions transform
-      "screenshot@fullScreen": true, // through actions transform
       pdf: false,
       document: false,
       atsv: false,
@@ -238,8 +227,6 @@ const engineOptions: {
     features: {
       actions: true,
       waitFor: true, // through actions transform
-      screenshot: true, // through actions transform
-      "screenshot@fullScreen": true, // through actions transform
       pdf: false,
       document: false,
       atsv: false,
@@ -257,8 +244,6 @@ const engineOptions: {
     features: {
       actions: false,
       waitFor: true,
-      screenshot: true,
-      "screenshot@fullScreen": true,
       pdf: true,
       document: true,
       atsv: false,
@@ -276,8 +261,6 @@ const engineOptions: {
     features: {
       actions: true,
       waitFor: true, // through actions transform
-      screenshot: true, // through actions transform
-      "screenshot@fullScreen": true, // through actions transform
       pdf: false,
       document: false,
       atsv: false,
@@ -295,8 +278,6 @@ const engineOptions: {
     features: {
       actions: true,
       waitFor: true, // through actions transform
-      screenshot: true, // through actions transform
-      "screenshot@fullScreen": true, // through actions transform
       pdf: false,
       document: false,
       atsv: false,
@@ -314,8 +295,6 @@ const engineOptions: {
     features: {
       actions: false,
       waitFor: true,
-      screenshot: true,
-      "screenshot@fullScreen": true,
       pdf: false,
       document: false,
       atsv: false,
@@ -333,8 +312,6 @@ const engineOptions: {
     features: {
       actions: false,
       waitFor: true,
-      screenshot: true,
-      "screenshot@fullScreen": true,
       pdf: false,
       document: false,
       atsv: false,
@@ -352,8 +329,6 @@ const engineOptions: {
     features: {
       actions: false,
       waitFor: true,
-      screenshot: true,
-      "screenshot@fullScreen": true,
       pdf: false,
       document: false,
       atsv: false,
@@ -371,8 +346,6 @@ const engineOptions: {
     features: {
       actions: false,
       waitFor: false,
-      screenshot: false,
-      "screenshot@fullScreen": false,
       pdf: false,
       document: false,
       atsv: true,
@@ -390,8 +363,6 @@ const engineOptions: {
     features: {
       actions: false,
       waitFor: false,
-      screenshot: false,
-      "screenshot@fullScreen": false,
       pdf: false,
       document: false,
       atsv: true,
@@ -409,8 +380,6 @@ const engineOptions: {
     features: {
       actions: false,
       waitFor: false,
-      screenshot: false,
-      "screenshot@fullScreen": false,
       pdf: false,
       document: false,
       atsv: false,
@@ -428,8 +397,6 @@ const engineOptions: {
     features: {
       actions: false,
       waitFor: false,
-      screenshot: false,
-      "screenshot@fullScreen": false,
       pdf: true,
       document: false,
       atsv: false,
@@ -447,8 +414,6 @@ const engineOptions: {
     features: {
       actions: false,
       waitFor: false,
-      screenshot: false,
-      "screenshot@fullScreen": false,
       pdf: false,
       document: true,
       atsv: false,
@@ -465,12 +430,6 @@ const engineOptions: {
 };
 
 export function shouldUseIndex(meta: Meta) {
-  // Skip index if screenshot format has custom viewport or quality settings
-  const screenshotFormat = hasFormatOfType(meta.options.formats, "screenshot");
-  const hasCustomScreenshotSettings =
-    screenshotFormat?.viewport !== undefined ||
-    screenshotFormat?.quality !== undefined;
-
   return (
     useIndex &&
     config.FIRECRAWL_INDEX_WRITE_ONLY !== true &&
@@ -478,7 +437,6 @@ export function shouldUseIndex(meta: Meta) {
     !hasFormatOfType(meta.options.formats, "branding") &&
     // Skip index if a non-default PDF maxPages is specified
     getPDFMaxPages(meta.options.parsers) === undefined &&
-    !hasCustomScreenshotSettings &&
     meta.options.maxAge !== 0 &&
     (meta.options.headers === undefined ||
       Object.keys(meta.options.headers).length === 0) &&

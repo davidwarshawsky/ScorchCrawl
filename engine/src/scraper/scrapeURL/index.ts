@@ -134,14 +134,6 @@ function buildFeatureFlags(
     flags.add("actions");
   }
 
-  if (hasFormatOfType(options.formats, "screenshot")) {
-    if (hasFormatOfType(options.formats, "screenshot")?.fullPage) {
-      flags.add("screenshot@fullScreen");
-    } else {
-      flags.add("screenshot");
-    }
-  }
-
   if (hasFormatOfType(options.formats, "branding")) {
     flags.add("branding");
   }
@@ -472,21 +464,6 @@ async function scrapeURLLoop(meta: Meta): Promise<ScrapeUrlResponse> {
     });
 
     if (meta.internalOptions.zeroDataRetention) {
-      if (meta.featureFlags.has("screenshot")) {
-        throw new ZDRViolationError("screenshot");
-      }
-
-      if (meta.featureFlags.has("screenshot@fullScreen")) {
-        throw new ZDRViolationError("screenshot@fullScreen");
-      }
-
-      if (
-        meta.options.actions &&
-        meta.options.actions.find(x => x.type === "screenshot")
-      ) {
-        throw new ZDRViolationError("screenshot action");
-      }
-
       if (
         meta.options.actions &&
         meta.options.actions.find(x => x.type === "pdf")
@@ -788,7 +765,6 @@ async function scrapeURLLoop(meta: Meta): Promise<ScrapeUrlResponse> {
     let document: Document = {
       markdown: engineResult.markdown,
       rawHtml: engineResult.html,
-      screenshot: engineResult.screenshot,
       actions: engineResult.actions,
       branding: engineResult.branding,
       metadata: {
@@ -1090,10 +1066,6 @@ export async function scrapeURL(
           ),
           summaryEnabled: !!hasFormatOfType(meta.options.formats, "summary"),
           jsonEnabled: !!hasFormatOfType(meta.options.formats, "json"),
-          screenshotEnabled: !!hasFormatOfType(
-            meta.options.formats,
-            "screenshot",
-          ),
           imagesEnabled: !!hasFormatOfType(meta.options.formats, "images"),
           brandingEnabled: !!hasFormatOfType(meta.options.formats, "branding"),
           pdfMaxPages: getPDFMaxPages(meta.options.parsers),
@@ -1140,10 +1112,6 @@ export async function scrapeURL(
           ),
           summaryEnabled: !!hasFormatOfType(meta.options.formats, "summary"),
           jsonEnabled: !!hasFormatOfType(meta.options.formats, "json"),
-          screenshotEnabled: !!hasFormatOfType(
-            meta.options.formats,
-            "screenshot",
-          ),
           imagesEnabled: !!hasFormatOfType(meta.options.formats, "images"),
           brandingEnabled: !!hasFormatOfType(meta.options.formats, "branding"),
           pdfMaxPages: getPDFMaxPages(meta.options.parsers),

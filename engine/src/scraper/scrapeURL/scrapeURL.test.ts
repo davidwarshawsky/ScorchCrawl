@@ -27,12 +27,6 @@ const testEngines: (Engine | undefined)[] = [
   "fetch",
 ];
 
-const testEnginesScreenshot: (Engine | undefined)[] = [
-  undefined,
-  "fire-engine;chrome-cdp",
-  "fire-engine;playwright",
-];
-
 describe("Standalone scrapeURL tests", () => {
   describe.each(testEngines)("Engine %s", (forceEngine: Engine | undefined) => {
     it("Basic scrape", async () => {
@@ -294,69 +288,6 @@ describe("Standalone scrapeURL tests", () => {
       }
     }, 30000);
   });
-
-  describe.each(testEnginesScreenshot)(
-    "Screenshot on engine %s",
-    (forceEngine: Engine | undefined) => {
-      it("Scrape with screenshot", async () => {
-        const out = await scrapeURL(
-          "test:scrape-screenshot",
-          "https://www.scrapethissite.com/",
-          scrapeOptions.parse({
-            formats: ["screenshot"],
-          }),
-          { forceEngine, teamId: "test" },
-          new CostTracking(),
-        );
-
-        // expect(out.logs.length).toBeGreaterThan(0);
-        expect(out.success).toBe(true);
-        if (out.success) {
-          expect(out.document.warning).toBeUndefined();
-          expect(out.document).toHaveProperty("screenshot");
-          expect(typeof out.document.screenshot).toBe("string");
-          expect(
-            out.document.screenshot!.startsWith(
-              "https://service.firecrawl.dev/storage/v1/object/public/media/",
-            ),
-          );
-          // TODO: attempt to fetch screenshot
-          expect(out.document).toHaveProperty("metadata");
-          expect(out.document.metadata.statusCode).toBe(200);
-          expect(out.document.metadata.error).toBeUndefined();
-        }
-      }, 30000);
-
-      it("Scrape with full-page screenshot", async () => {
-        const out = await scrapeURL(
-          "test:scrape-screenshot-fullPage",
-          "https://www.scrapethissite.com/",
-          scrapeOptions.parse({
-            formats: ["screenshot@fullPage"],
-          }),
-          { forceEngine, teamId: "test" },
-          new CostTracking(),
-        );
-
-        // expect(out.logs.length).toBeGreaterThan(0);
-        expect(out.success).toBe(true);
-        if (out.success) {
-          expect(out.document.warning).toBeUndefined();
-          expect(out.document).toHaveProperty("screenshot");
-          expect(typeof out.document.screenshot).toBe("string");
-          expect(
-            out.document.screenshot!.startsWith(
-              "https://service.firecrawl.dev/storage/v1/object/public/media/",
-            ),
-          );
-          // TODO: attempt to fetch screenshot
-          expect(out.document).toHaveProperty("metadata");
-          expect(out.document.metadata.statusCode).toBe(200);
-          expect(out.document.metadata.error).toBeUndefined();
-        }
-      }, 30000);
-    },
-  );
 
   it("Scrape of a PDF file", async () => {
     const out = await scrapeURL(

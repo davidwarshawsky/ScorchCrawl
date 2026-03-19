@@ -228,7 +228,7 @@ Maximum time (in milliseconds) to wait for the Copilot SDK summarization session
 
 | | |
 |---|---|
-| **Default** | `16` |
+| **Default** | `5` |
 
 Number of parallel workers processing scrape/crawl jobs from the RabbitMQ queue. Higher = more throughput, more memory.
 
@@ -236,7 +236,7 @@ Number of parallel workers processing scrape/crawl jobs from the RabbitMQ queue.
 
 | | |
 |---|---|
-| **Default** | `10` |
+| **Default** | `3` |
 
 Maximum concurrent crawl jobs. Each crawl job can spawn many individual scrape tasks.
 
@@ -244,33 +244,134 @@ Maximum concurrent crawl jobs. Each crawl job can spawn many individual scrape t
 
 | | |
 |---|---|
-| **Default** | `20` |
+| **Default** | `3` |
 
-How many pages a single crawl job fetches in parallel.
+How many pages a single crawl job fetches in parallel. In the Docker stack this also feeds the Playwright service's `MAX_CONCURRENT_PAGES` limit, so raising it increases browser memory pressure quickly.
 
 ### `BROWSER_POOL_SIZE`
 
 | | |
 |---|---|
-| **Default** | `10` |
+| **Default** | `3` |
 
-Number of Chrome browser instances in the Browserless pool. Each instance can handle one page at a time.
+Number of Chrome browser sessions allowed in the Browserless pool. Higher values improve throughput only if the host still has free RAM and CPU; otherwise latency and crash risk increase.
 
 ### `SCRAPE_MAX_ATTEMPTS`
 
 | | |
 |---|---|
-| **Default** | `6` |
+| **Default** | `3` |
 
-How many times to retry a failed scrape before giving up. Includes fallback strategies (e.g., switching from Playwright to Browserless).
+How many handled retries a scrape gets before the engine gives up. This includes engine fallback and feature-discovery retries, not just identical replays of the same request.
+
+For constrained hosts, lowering this to `3` is a sensible default. That cuts wasted browser work on clearly blocked targets and reduces queue churn. Keep it closer to `4-6` only if you care more about recovery on hostile PDF/document targets than raw throughput.
+
+### `SCRAPE_MAX_PDF_PREFETCHES`
+
+| | |
+|---|---|
+| **Default** | `1` |
+
+How many anti-bot recovery attempts the engine makes for blocked PDF downloads before failing the scrape.
+
+### `SCRAPE_MAX_DOCUMENT_PREFETCHES`
+
+| | |
+|---|---|
+| **Default** | `1` |
+
+How many anti-bot recovery attempts the engine makes for blocked document downloads such as DOCX/XLSX before failing the scrape.
+
+### `SCRAPE_MAX_FEATURE_TOGGLES`
+
+| | |
+|---|---|
+| **Default** | `2` |
+
+How many times the engine may retry after discovering it needs extra scrape capabilities such as PDF/document handling or other feature flags.
+
+### Low-RAM Tuning
+
+If the machine only has about `3-4 GB` of free RAM available for ScorchCrawl, tune for stability first and increase cautiously:
+
+```dotenv
+NUM_WORKERS_PER_QUEUE=2
+MAX_CONCURRENT_JOBS=1
+CRAWL_CONCURRENT_REQUESTS=2
+BROWSER_POOL_SIZE=1
+SCRAPE_MAX_ATTEMPTS=3
+SCRAPE_MAX_PDF_PREFETCHES=1
+SCRAPE_MAX_DOCUMENT_PREFETCHES=1
+SCRAPE_MAX_FEATURE_TOGGLES=2
+BLOCK_MEDIA=true
+```
+
+Start there, then raise only one variable at a time:
+
+- Raise `CRAWL_CONCURRENT_REQUESTS` from `2` to `3-4` if pages are mostly lightweight and you still have headroom.
+- Raise `BROWSER_POOL_SIZE` from `1` to `2` only if Browserless is the bottleneck and the host is not swapping.
+- Keep `MAX_CONCURRENT_JOBS=1` on small hosts unless you are certain your crawl jobs are shallow.
+- Prefer markdown or JSON formats on constrained hosts because browser-heavy workflows increase memory pressure.
+
+### Medium-RAM Deployment Profile
+
+If the host has roughly `6-7 GB` free when idle and you want the stack to keep accepting work, queue aggressively, and tolerate `20-30s` waits rather than fail fast, this is a reasonable starting profile:
+
+```dotenv
+NUM_WORKERS_PER_QUEUE=5
+MAX_CONCURRENT_JOBS=3
+CRAWL_CONCURRENT_REQUESTS=3
+BROWSER_POOL_SIZE=3
+SCRAPE_MAX_ATTEMPTS=3
+SCRAPE_MAX_PDF_PREFETCHES=1
+SCRAPE_MAX_DOCUMENT_PREFETCHES=1
+SCRAPE_MAX_FEATURE_TOGGLES=2
+BLOCK_MEDIA=true
+```
+
+Why this profile works better than the defaults:
+
+- `MAX_CONCURRENT_JOBS=3` allows multiple top-level requests to stay admitted instead of rejecting work too early.
+- `CRAWL_CONCURRENT_REQUESTS=3` keeps each crawl shallow enough that the browser layer can queue rather than thrash.
+- `BROWSER_POOL_SIZE=3` gives Browserless a small but useful amount of parallelism.
+- `NUM_WORKERS_PER_QUEUE=5` keeps the queue draining without letting too many browser-heavy tasks run at once.
+- `SCRAPE_MAX_ATTEMPTS=3` avoids burning RAM and time on long retry waterfalls when a target is clearly blocked.
+
+This is a throughput-via-queueing profile, not a low-latency profile.
+
+### Important Limitation: Queueing Is Not Memory-Aware Yet
+
+Today, ScorchCrawl queues work based on fixed concurrency controls, not container memory pressure.
+
+- The scraping engine already queues jobs when crawl or team concurrency limits are reached.
+- The Playwright service also has an internal semaphore queue once `MAX_CONCURRENT_PAGES` is reached.
+- The MCP agent server, however, currently rejects over-limit agent jobs instead of placing them into a durable wait queue.
+
+There is currently no built-in rule like: "when container RSS exceeds 90% of 4 GB, stop starting new work and queue everything." That would require an additional memory monitor plus admission-control hook.
+
+### Important Limitation: `4 GB` Must Mean the Whole Browser Path
+
+If you cap only `scorchcrawl-api` at `4 GB`, that does not cap total scraping memory usage. In the default Docker Compose stack, the heavy browser work lives in separate services:
+
+- `scorchcrawl-api`
+- `playwright`
+- `browserless`
+
+If you want a real `4 GB` operating budget, set limits with the full browser path in mind, not just the API container.
 
 ### Anti-Bot / Stealth Settings
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PLAYWRIGHT_MICROSERVICE_URL` | `http://playwright:3000/scrape` | Stealth browser service endpoint |
+| `PLAYWRIGHT_MICROSERVICE_URL` | `http://playwright:3000/scrape` | Browser-rendering service endpoint used for JavaScript-heavy and anti-bot-sensitive pages |
 | `BLOCK_MEDIA` | (empty) | Block images/video to speed up scraping |
 | `MAX_CONCURRENT_PAGES` | `20` | Max pages Playwright handles at once |
+
+The current stack is harder to detect than plain `fetch` or raw HTTP clients because it uses a real browser runtime and can route through proxies, but it is not equivalent to state-of-the-art anti-detection stacks. Do not assume it is "undetectable" on Cloudflare/DataDome-class targets.
+
+### Unsupported Formats
+
+Screenshot requests are not part of the supported public API. Request schemas reject screenshot formats and screenshot actions.
 
 ---
 

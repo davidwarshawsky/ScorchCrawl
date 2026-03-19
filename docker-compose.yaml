@@ -38,15 +38,15 @@ x-common-env: &common-env
   # --- Browser backend ---
   PLAYWRIGHT_MICROSERVICE_URL: ${PLAYWRIGHT_MICROSERVICE_URL:-http://playwright:3000/scrape}
   # --- Concurrency ---
-  NUM_WORKERS_PER_QUEUE: ${NUM_WORKERS_PER_QUEUE:-16}
-  CRAWL_CONCURRENT_REQUESTS: ${CRAWL_CONCURRENT_REQUESTS:-20}
-  MAX_CONCURRENT_JOBS: ${MAX_CONCURRENT_JOBS:-10}
-  BROWSER_POOL_SIZE: ${BROWSER_POOL_SIZE:-10}
+  NUM_WORKERS_PER_QUEUE: ${NUM_WORKERS_PER_QUEUE:-5}
+  CRAWL_CONCURRENT_REQUESTS: ${CRAWL_CONCURRENT_REQUESTS:-3}
+  MAX_CONCURRENT_JOBS: ${MAX_CONCURRENT_JOBS:-3}
+  BROWSER_POOL_SIZE: ${BROWSER_POOL_SIZE:-3}
   # --- Scraping knobs ---
-  SCRAPE_MAX_ATTEMPTS: ${SCRAPE_MAX_ATTEMPTS:-6}
-  SCRAPE_MAX_PDF_PREFETCHES: ${SCRAPE_MAX_PDF_PREFETCHES:-2}
-  SCRAPE_MAX_DOCUMENT_PREFETCHES: ${SCRAPE_MAX_DOCUMENT_PREFETCHES:-2}
-  SCRAPE_MAX_FEATURE_TOGGLES: ${SCRAPE_MAX_FEATURE_TOGGLES:-3}
+  SCRAPE_MAX_ATTEMPTS: ${SCRAPE_MAX_ATTEMPTS:-3}
+  SCRAPE_MAX_PDF_PREFETCHES: ${SCRAPE_MAX_PDF_PREFETCHES:-1}
+  SCRAPE_MAX_DOCUMENT_PREFETCHES: ${SCRAPE_MAX_DOCUMENT_PREFETCHES:-1}
+  SCRAPE_MAX_FEATURE_TOGGLES: ${SCRAPE_MAX_FEATURE_TOGGLES:-2}
   USE_DB_AUTHENTICATION: ${USE_DB_AUTHENTICATION:-false}
   # --- Optional: Proxy ---
   PROXY_SERVER: ${PROXY_SERVER:-}
@@ -88,9 +88,9 @@ services:
     ports:
       - "${SCORCHCRAWL_HOST:-127.0.0.1}:${SCORCHCRAWL_PORT:-24786}:${INTERNAL_PORT:-3002}"
     command: node dist/src/harness.js --start-docker
-    cpus: 4.0
-    mem_limit: 8G
-    memswap_limit: 8G
+    cpus: 2.0
+    mem_limit: 1536M
+    memswap_limit: 1536M
 
   # ===========================================================================
   # Search — SearXNG (privacy-preserving metasearch engine)
@@ -114,6 +114,8 @@ services:
     logging:
       driver: "json-file"
       options: { max-size: "5m", max-file: "2", compress: "true" }
+    mem_limit: 128M
+    memswap_limit: 128M
 
   # ===========================================================================
   # Stealth Browser Services
@@ -126,24 +128,26 @@ services:
       PROXY_USERNAME: ${PROXY_USERNAME:-}
       PROXY_PASSWORD: ${PROXY_PASSWORD:-}
       BLOCK_MEDIA: ${BLOCK_MEDIA:-}
-      MAX_CONCURRENT_PAGES: ${CRAWL_CONCURRENT_REQUESTS:-20}
+      MAX_CONCURRENT_PAGES: ${CRAWL_CONCURRENT_REQUESTS:-3}
     networks: [backend]
     extra_hosts: ["host.docker.internal:host-gateway"]
-    cpus: 2.0
-    mem_limit: 4G
-    memswap_limit: 4G
+    cpus: 1.0
+    mem_limit: 768M
+    memswap_limit: 768M
     logging: *default-logging
     tmpfs:
-      - /tmp/.cache:noexec,nosuid,size=1g
+      - /tmp/.cache:noexec,nosuid,size=256m
 
   browserless:
     image: browserless/chrome:latest
     environment:
       DEFAULT_STEALTH: "true"
-      MAX_CONCURRENT_SESSIONS: ${BROWSER_POOL_SIZE:-10}
+      MAX_CONCURRENT_SESSIONS: ${BROWSER_POOL_SIZE:-3}
       CONNECTION_TIMEOUT: "60000"
       TOKEN: ${BROWSERLESS_TOKEN:-scorchcrawl-stealth-token}
     networks: [backend]
+    mem_limit: 768M
+    memswap_limit: 768M
     logging:
       driver: "json-file"
       options: { max-size: "5m", max-file: "2", compress: "true" }
@@ -155,6 +159,8 @@ services:
     image: redis:alpine
     networks: [backend]
     command: redis-server --bind 0.0.0.0
+    mem_limit: 128M
+    memswap_limit: 128M
     logging:
       driver: "json-file"
       options: { max-size: "5m", max-file: "2", compress: "true" }
@@ -163,6 +169,8 @@ services:
     image: rabbitmq:3-management
     networks: [backend]
     command: rabbitmq-server
+    mem_limit: 256M
+    memswap_limit: 256M
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
       interval: 5s
@@ -180,6 +188,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
     networks: [backend]
+    mem_limit: 384M
+    memswap_limit: 384M
     logging: *default-logging
 
 networks:

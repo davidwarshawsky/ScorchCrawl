@@ -6,7 +6,6 @@ import { extractLinks } from "../lib/extractLinks";
 import { extractImages } from "../lib/extractImages";
 import { extractMetadata } from "../lib/extractMetadata";
 import { performLLMExtract, performSummary } from "./llmExtract";
-import { uploadScreenshot } from "./uploadScreenshot";
 import { removeBase64Images } from "./removeBase64Images";
 import { performAgent } from "./agent";
 import { performAttributes } from "./performAttributes";
@@ -243,7 +242,6 @@ function coerceFieldsToFormats(meta: Meta, document: Document): Document {
     "changeTracking",
   );
   const hasJson = hasFormatOfType(meta.options.formats, "json");
-  const hasScreenshot = hasFormatOfType(meta.options.formats, "screenshot");
   const hasSummary = hasFormatOfType(meta.options.formats, "summary");
   const hasBranding = hasFormatOfType(meta.options.formats, "branding");
 
@@ -268,17 +266,6 @@ function coerceFieldsToFormats(meta: Meta, document: Document): Document {
   } else if (hasHtml && document.html === undefined) {
     meta.logger.warn(
       "Request had format: html, but there was no html field in the result.",
-    );
-  }
-
-  if (!hasScreenshot && document.screenshot !== undefined) {
-    meta.logger.warn(
-      "Removed screenshot from Document because it wasn't in formats -- this is very wasteful and indicates a bug.",
-    );
-    delete document.screenshot;
-  } else if (hasScreenshot && document.screenshot === undefined) {
-    meta.logger.warn(
-      "Request had format: screenshot / screenshot@fullPage, but there was no screenshot field in the result.",
     );
   }
 
@@ -408,8 +395,6 @@ function coerceFieldsToFormats(meta: Meta, document: Document): Document {
     delete document.actions;
   } else if (document.actions) {
     // Check if all action arrays are empty
-    const hasScreenshots =
-      document.actions.screenshots && document.actions.screenshots.length > 0;
     const hasScrapes =
       document.actions.scrapes && document.actions.scrapes.length > 0;
     const hasJsReturns =
@@ -417,7 +402,7 @@ function coerceFieldsToFormats(meta: Meta, document: Document): Document {
       document.actions.javascriptReturns.length > 0;
     const hasPdfs = document.actions.pdfs && document.actions.pdfs.length > 0;
 
-    if (!hasScreenshots && !hasScrapes && !hasJsReturns && !hasPdfs) {
+    if (!hasScrapes && !hasJsReturns && !hasPdfs) {
       delete document.actions;
     }
   }
@@ -433,7 +418,6 @@ const transformerStack: Transformer[] = [
   deriveImagesFromHTML,
   deriveBrandingFromActions,
   deriveMetadataFromRawHTML,
-  uploadScreenshot,
   ...(useIndex ? [sendDocumentToIndex] : []),
   ...(useSearchIndex ? [sendDocumentToSearchIndex] : []), // Add to search index for real-time search
   performLLMExtract,

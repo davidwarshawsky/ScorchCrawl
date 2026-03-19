@@ -73,8 +73,6 @@ async function performFireEngineScrape<
       "fire-engine.url": request.url,
       "fire-engine.priority": request.priority,
       "fire-engine.wait": (request as any).wait,
-      "fire-engine.screenshot": (request as any).screenshot,
-      "fire-engine.fullpage": (request as any).fullPage,
       "fire-engine.proxy": (request as any).proxy,
       "fire-engine.mobile": (request as any).mobile,
       "fire-engine.skip_tls": (request as any).skipTlsVerification,
@@ -244,7 +242,6 @@ async function performFireEngineScrape<
       "fire-engine.duration_ms": Date.now() - startTime,
       "fire-engine.status_code": status.pageStatusCode,
       "fire-engine.content_length": status.content?.length,
-      "fire-engine.has_screenshot": !!status.screenshot,
       "fire-engine.has_pdf": !!(status as any).pdf,
       "fire-engine.job_id": (scrape as any).jobId,
     });
@@ -286,26 +283,6 @@ export async function scrapeURLWithFireEngineChromeCDP(
         const { metadata: _, ...rest } = action as InternalAction;
         return rest;
       }),
-
-      // Transform screenshot format into an action (unsupported by chrome-cdp)
-      ...(hasFormatOfType(meta.options.formats, "screenshot")
-        ? [
-            {
-              type: "screenshot" as const,
-              fullPage:
-                hasFormatOfType(meta.options.formats, "screenshot")?.fullPage ||
-                false,
-              ...(hasFormatOfType(meta.options.formats, "screenshot")?.viewport
-                ? {
-                    viewport: hasFormatOfType(
-                      meta.options.formats,
-                      "screenshot",
-                    )!.viewport,
-                  }
-                : {}),
-            },
-          ]
-        : []),
       ...(hasFormatOfType(meta.options.formats, "branding")
         ? [
             {
@@ -366,21 +343,6 @@ export async function scrapeURLWithFireEngineChromeCDP(
       true,
     );
 
-    if (hasFormatOfType(meta.options.formats, "screenshot")) {
-      // meta.logger.debug(
-      //   "Transforming screenshots from actions into screenshot field",
-      //   { screenshots: response.screenshots },
-      // );
-      if (response.screenshots) {
-        response.screenshot = response.screenshots.slice(-1)[0];
-        response.screenshots = response.screenshots.slice(0, -1);
-      }
-      // meta.logger.debug("Screenshot transformation done", {
-      //   screenshots: response.screenshots,
-      //   screenshot: response.screenshot,
-      // });
-    }
-
     if (!response.url) {
       meta.logger.warn("Fire-engine did not return the response's URL", {
         response,
@@ -434,11 +396,9 @@ export async function scrapeURLWithFireEngineChromeCDP(
           x => x[0].toLowerCase() === "content-type",
         ) ?? [])[1] ?? undefined,
 
-      screenshot: response.screenshot,
       ...(actions.length > 0
         ? {
             actions: {
-              screenshots: response.screenshots ?? [],
               scrapes: response.actionContent ?? [],
               javascriptReturns,
               pdfs: (response.actionResults ?? [])
@@ -474,10 +434,6 @@ export async function scrapeURLWithFireEnginePlaywright(
 
       headers: meta.options.headers,
       priority: meta.internalOptions.priority,
-      screenshot:
-        hasFormatOfType(meta.options.formats, "screenshot") !== undefined,
-      fullPageScreenshot: hasFormatOfType(meta.options.formats, "screenshot")
-        ?.fullPage,
       wait: meta.options.waitFor,
       geolocation: meta.options.location,
       blockAds: meta.options.blockAds,
@@ -519,12 +475,6 @@ export async function scrapeURLWithFireEnginePlaywright(
         (Object.entries(response.responseHeaders ?? {}).find(
           x => x[0].toLowerCase() === "content-type",
         ) ?? [])[1] ?? undefined,
-
-      ...(response.screenshots !== undefined && response.screenshots.length > 0
-        ? {
-            screenshot: response.screenshots[0],
-          }
-        : {}),
 
       proxyUsed: response.usedMobileProxy ? "stealth" : "basic",
       timezone: response.timezone,

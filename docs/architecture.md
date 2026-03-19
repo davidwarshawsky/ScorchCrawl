@@ -92,13 +92,14 @@ The server exposes 10 tools via the MCP protocol:
 
 ## Anti-Bot Detection
 
-The stealth layer is provided by the engine (Playwright service + browserless):
+The anti-bot layer is provided by the engine's browser path (Playwright service + Browserless):
 
-- Stealth browser fingerprinting
-- Human-like scrolling and timing
-- Proxy rotation support (residential IPs optional)
-- TLS fingerprint randomization
-- Cookie and session persistence
+- Real browser execution instead of plain HTTP fetches
+- Optional proxy routing, including residential proxies if you provide them
+- Browser-based rendering for JavaScript-heavy targets
+- Cookie/session continuity inside the browser session
+
+This improves success rates on many sites, but it should not be described as an undetectable or state-of-the-art stealth stack. Advanced anti-bot systems can still detect and block it, especially on datacenter IPs.
 
 ## Deployment Modes
 

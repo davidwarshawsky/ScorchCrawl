@@ -5,7 +5,7 @@ import { FormatObject } from "../controllers/v2/types";
  * Returns the format object if found, undefined otherwise.
  *
  * This function handles both simple formats (e.g., { type: "markdown" })
- * and complex formats with additional properties (e.g., { type: "screenshot", fullPage: true }).
+ * and complex formats with additional properties.
  *
  * @param formats - Array of format objects
  * @param type - The format type to search for

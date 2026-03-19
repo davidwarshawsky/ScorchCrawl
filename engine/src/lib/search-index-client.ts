@@ -24,7 +24,6 @@ interface IndexDocumentRequest {
   html: string;
   statusCode: number;
   gcsPath?: string;
-  screenshotUrl?: string;
   language?: string;
   country?: string;
   isMobile?: boolean;
